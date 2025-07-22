@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>考試系統 - 線上考試系統</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div class="logo">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M11.7 2.805a.75.75 0 01.6 0A60.65 60.65 0 0122.83 8.72a.75.75 0 01-.231 1.337 49.949 49.949 0 00-9.902 3.912l-.003.002-.34.18a.75.75 0 01-.707 0A50.009 50.009 0 007.5 12.174v-.224c0-.131.067-.248.172-.311a54.614 54.614 0 014.653-2.52.75.75 0 00-.65-1.352 56.129 56.129 0 00-4.78 2.589 1.858 1.858 0 00-.859 1.228 49.803 49.803 0 00-4.634-1.527.75.75 0 01-.231-1.337A60.653 60.653 0 0111.7 2.805z" />
+                        <path d="M13.06 15.473a48.45 48.45 0 017.666-3.282c.134 1.414.22 2.843.255 4.285a.75.75 0 01-.46.71 47.878 47.878 0 00-8.105 4.342.75.75 0 01-.832 0 47.877 47.877 0 00-8.104-4.342.75.75 0 01-.461-.71c.035-1.442.121-2.87.255-4.286A48.4 48.4 0 016 13.18v1.27a1.5 1.5 0 00-.14 2.508c-.09.38-.222.753-.397 1.11.452.213.901.434 1.346.661a6.729 6.729 0 00.551-1.608 1.5 1.5 0 00.14-2.67v-.645a48.549 48.549 0 013.44 1.668 2.25 2.25 0 002.12 0z" />
+                        <path d="M4.462 19.462c.42-.419.753-.89 1-1.394.453.213.902.434 1.347.661a6.743 6.743 0 01-1.286 1.794.75.75 0 11-1.06-1.06z" />
+                    </svg>
+                    <h1>線上考試系統</h1>
+                </div>
+                <a href="index.html" class="home-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                    返回首頁
+                </a>
+            </div>
+        </header>
+        <main id="exam-container">
+            <!-- 步驟 0: 輸入暱稱 -->
+            <div id="nickname-step" class="glass-card fade-in">
+                <h2 class="step-title">輸入您的暱稱</h2>
+                <p class="step-description">在開始考試前，請輸入您的暱稱，以便記錄您的成績。</p>
+                
+                <div class="form-group">
+                    <input type="text" id="nickname-input" placeholder="請輸入暱稱" class="glass-input">
+                </div>
+                
+                <div class="button-container">
+                    <button id="start-btn" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        開始考試
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 步驟 1: 選擇年份 (隱藏) -->
+            <div id="year-step" class="glass-card fade-in" style="display: none;">
+                <h2 class="step-title">選擇考試年度</h2>
+                <p class="step-description">請選擇您要測驗的考試年度</p>
+                
+                <div class="select-container">
+                    <div class="select-wrapper">
+                        <select id="year-select" class="glass-select">
+                            <option value="" disabled selected>-- 選擇年度 --</option>
+                            <option value="2025">2025年</option>
+                            <option value="2024">2024年</option>
+                            <option value="2023">2023年</option>
+                            <option value="2022">2022年</option>
+                            <option value="2021">2021年</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="button-container">
+                    <button id="year-next-btn" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        下一步
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 步驟 2: 選擇科目 (隱藏) -->
+            <div id="subject-step" class="glass-card fade-in" style="display: none;">
+                <!-- 科目選擇內容 -->
+            </div>
+
+            <!-- 步驟 3: 選擇考試類型 (隱藏) -->
+            <div id="exam-type-step" class="glass-card fade-in" style="display: none;">
+                <!-- 考試類型選擇內容 -->
+            </div>
+            
+            <!-- 步驟 4: 考試進行中 (隱藏) -->
+            <div id="exam-step" class="fade-in" style="display: none;">
+                <!-- 考試內容 -->
+            </div>
+            
+            <!-- 步驟 5: 考試結果 (隱藏) -->
+            <div id="result-step" class="glass-card fade-in" style="display: none;">
+                <!-- 結果內容 -->
+            </div>
+        </main>
+        <footer>
+            <p>&copy; 2025 線上考試系統 - 保留所有權利</p>
+        </footer>
+    </div>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <!-- Firebase Config -->
+    <script src="js/firebase.js"></script>
+
+    <!-- Mock Data for Preview Mode -->
+    <script src="js/mockData.js"></script>
+    
+    <!-- App Script -->
+    <script src="js/examSystem.js"></script>
+</body>
+</html>

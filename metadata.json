@@ -1,0 +1,6 @@
+{
+  "name": "線上考試系統",
+  "description": "一個功能完整的線上考試系統，包含使用者考試、排行榜以及管理員後台功能。",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
