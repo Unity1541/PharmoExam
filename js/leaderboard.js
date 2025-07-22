@@ -29,7 +29,8 @@ document.addEventListener('DOMContentLoaded', function() {
         'law': '藥事行政法規',
         'therapeutics': '藥物治療',
         'pharmaceutics': '藥劑學',
-        'pharmacognosy': '生藥學'
+        'pharmacognosy': '生藥學',
+        'quiz': '小考練習區'
     };
 
     function showPreviewWarning() {
@@ -54,7 +55,10 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const subjectKey = this.getAttribute('data-subject');
             const leaderboardContainerId = `${Object.keys(subjectMapping).find(key => subjectMapping[key] === subjectKey)}-leaderboard`;
-            document.getElementById(leaderboardContainerId).classList.add('active');
+            const container = document.getElementById(leaderboardContainerId)
+            if (container) {
+                container.classList.add('active');
+            }
         });
     });
     

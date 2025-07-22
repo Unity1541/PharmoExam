@@ -318,24 +318,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function updateLeaderboard() {
-        const userRecord = { 
-            nickname, 
-            score, 
-            subject: selectedSubject,
+        // If the exam type is '小考練習區', we group it under its own leaderboard category.
+        // Otherwise, we group it by the subject.
+        const leaderboardCategory = selectedExamType === '小考練習區' ? '小考練習區' : selectedSubject;
+
+        const userRecord = {
+            nickname,
+            score,
+            subject: leaderboardCategory, // Use the determined category for leaderboard grouping
             year: selectedYear,
             examType: selectedExamType,
             date: firebase.firestore.FieldValue.serverTimestamp(),
             examId: latestExamId
         };
-        
+
         try {
             const querySnapshot = await leaderboardCollection
-                .where('subject', '==', selectedSubject)
+                .where('subject', '==', leaderboardCategory) // Query using the leaderboard category
                 .where('nickname', '==', nickname)
                 .get();
 
             if (!querySnapshot.empty) {
-                // To simplify, we always update the latest score for a given user in a subject.
+                // To simplify, we always update the latest score for a given user in a category.
                 // A more complex logic could be to only update if the new score is higher.
                 const docId = querySnapshot.docs[0].id;
                 await leaderboardCollection.doc(docId).update(userRecord);
@@ -406,9 +410,11 @@ document.addEventListener('DOMContentLoaded', () => {
         resultStep.innerHTML = `<div class="loading-spinner">正在計算您的成績與排名...</div>`;
         
         await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const leaderboardCategory = selectedExamType === '小考練習區' ? '小考練習區' : selectedSubject;
 
         try {
-            const q = leaderboardCollection.where('subject', '==', selectedSubject);
+            const q = leaderboardCollection.where('subject', '==', leaderboardCategory);
             const snapshot = await q.get();
             let subjectLeaderboard = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
             
@@ -443,12 +449,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     
                     <div class="rank-info">
-                        <p>您在${selectedSubject}排行榜中排名第 <strong>${userRank}</strong> 名</p>
+                        <p>您在 ${leaderboardCategory} 排行榜中排名第 <strong>${userRank}</strong> 名</p>
                     </div>
                     
                     <h3 class="leaderboard-title">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17.8 5.8 21 7 14.1 2 9.3l7-1L12 2l3 6.3 7 1-5 4.8 1.2 6.9-6.2-3.2Z"></path></svg>
-                        ${selectedSubject}排行榜（前五名）
+                        ${leaderboardCategory} 排行榜（前五名）
                     </h3>
                     
                     <div class="mini-leaderboard">

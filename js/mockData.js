@@ -33,4 +33,9 @@ const MOCK_LEADERBOARD = {
         { nickname: '神農氏', score: 99 },
         { nickname: '李時珍', score: 96 },
     ],
+    '小考練習區': [
+        { nickname: '常勝軍', score: 91 },
+        { nickname: '快手小明', score: 85 },
+        { nickname: '練習達人', score: 78 },
+    ],
 };
