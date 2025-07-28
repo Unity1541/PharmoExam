@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const questionsCollection = db.collection('questions');
     const leaderboardCollection = db.collection('leaderboard');
+    const examAttemptsCollection = db.collection('examAttempts');
 
     const availableYears = ['2025', '2024', '2023', '2022', '2021'];
     const availableSubjects = ['藥理藥化', '生物藥劑', '藥物分析', '藥事行政法規', '藥物治療', '藥劑學', '生藥學'];
@@ -72,6 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let state = {
         isLoggedIn: false,
+        user: null,
+        // Question state
         questions: [],
         filteredQuestions: [],
         loading: false,
@@ -84,7 +87,11 @@ document.addEventListener('DOMContentLoaded', () => {
             examType: '',
         },
         expandedQuestionId: null,
-        user: null,
+        // Attempt state
+        examAttempts: [],
+        filteredExamAttempts: [],
+        loadingAttempts: false,
+        viewingAttempt: null,
     };
 
     function setState(newState) {
@@ -96,11 +103,12 @@ document.addEventListener('DOMContentLoaded', () => {
     auth.onAuthStateChanged(user => {
         if (user) {
             document.body.classList.add('admin');
-            setState({ isLoggedIn: true, user, loading: true });
+            setState({ isLoggedIn: true, user, loading: true, loadingAttempts: true });
             loadQuestions();
+            loadExamAttempts();
         } else {
             document.body.classList.remove('admin');
-            setState({ isLoggedIn: false, user: null, questions: [], filteredQuestions: [] });
+            setState({ isLoggedIn: false, user: null, questions: [], filteredQuestions: [], examAttempts: [], filteredExamAttempts: [] });
         }
     });
 
@@ -115,12 +123,38 @@ document.addEventListener('DOMContentLoaded', () => {
             setState({ loading: false });
         }
     }
+    
+    async function loadExamAttempts() {
+        try {
+            const snapshot = await examAttemptsCollection.orderBy('date', 'desc').get();
+            const attempts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setState({ examAttempts: attempts, filteredExamAttempts: attempts, loadingAttempts: false });
+        } catch (error) {
+            console.error("Error loading exam attempts:", error);
+            alert('無法載入作答紀錄。');
+            setState({ loadingAttempts: false });
+        }
+    }
 
     function render() {
         if (!state.isLoggedIn) {
             renderLoginForm();
         } else {
             renderAdminPanel();
+        }
+        // Attach general listeners after every render
+        attachGeneralListeners();
+    }
+    
+    function attachGeneralListeners() {
+        document.getElementById('modal-close-btn')?.addEventListener('click', () => setState({ viewingAttempt: null }));
+        const reviewModal = document.getElementById('review-modal');
+        if (reviewModal) {
+            reviewModal.addEventListener('click', (e) => {
+                if (e.target === reviewModal) {
+                    setState({ viewingAttempt: null });
+                }
+            });
         }
     }
 
@@ -160,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function renderAdminPanel() {
-        const { loading, showForm, editingQuestionId, filters, user } = state;
+        const { loading, showForm, editingQuestionId, filters, user, viewingAttempt, loadingAttempts } = state;
         const editingQuestion = editingQuestionId ? state.questions.find(q => q.id === editingQuestionId) : null;
 
         adminContainer.innerHTML = `
@@ -252,6 +286,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${loading ? '<div class="loading-spinner">載入中...</div>' : renderQuestionList()}
                 </main>
                 
+                 <!-- 作答紀錄管理 -->
+                <section class="glass-card" style="margin-top: 2rem;">
+                    <h3>作答紀錄管理</h3>
+                    <p class="step-description" style="margin-bottom: 1rem;">此處列出所有使用者的考試紀錄。您可以查看詳細作答情況或刪除紀錄。</p>
+                    <div id="attempt-list-container">
+                         ${loadingAttempts ? '<div class="loading-spinner">載入中...</div>' : renderAttemptList()}
+                    </div>
+                </section>
+
                 <section class="glass-card" style="margin-top: 2rem;">
                     <h3>排名管理</h3>
                     <p class="step-description" style="margin-bottom: 1rem;">此操作將會清除所有科目的排行榜資料，此操作無法復原。</p>
@@ -260,6 +303,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         清除所有排名
                     </button>
                 </section>
+            </div>
+            
+            <!-- Modal for viewing attempt review -->
+            <div id="review-modal" class="modal-overlay" style="display: ${viewingAttempt ? 'flex' : 'none'};">
+                <div class="modal-content glass-card">
+                    <button id="modal-close-btn" class="modal-close">&times;</button>
+                    <div id="modal-body">
+                        ${viewingAttempt ? renderAnswerReview(viewingAttempt.questions, {}) : ''}
+                    </div>
+                </div>
             </div>
         `;
         attachAdminListeners();
@@ -315,6 +368,43 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
     
+    function renderAttemptList() {
+        const { filteredExamAttempts } = state;
+        if (filteredExamAttempts.length === 0) {
+            return '<div class="no-questions" style="padding: var(--spacing-8)">尚無任何作答紀錄。</div>';
+        }
+
+        return `
+            <div class="attempt-list">
+                ${filteredExamAttempts.map(attempt => {
+                    const attemptDate = attempt.date ? new Date(attempt.date.seconds * 1000).toLocaleString('zh-TW') : 'N/A';
+                    return `
+                    <div class="attempt-item">
+                        <div class="attempt-item-header">
+                            <div class="attempt-item-info">
+                                <div class="question-item-tags">
+                                    <span class="tag">${attempt.year}</span>
+                                    <span class="tag">${attempt.leaderboardCategory}</span>
+                                    <span class="tag">${attempt.examType}</span>
+                                </div>
+                                <p class="attempt-item-info nickname">${attempt.nickname} - <span style="color: var(--primary-color);">${attempt.score}分</span></p>
+                                <p class="attempt-item-info date">考試時間：${attemptDate}</p>
+                            </div>
+                            <div class="attempt-item-actions">
+                                <button class="action-btn view-attempt-btn" data-id="${attempt.id}" title="查看詳情">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                </button>
+                                <button class="action-btn delete-attempt-btn" data-id="${attempt.id}" data-exam-id="${attempt.examId}" title="刪除紀錄">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('')}
+            </div>
+        `;
+    }
+    
     function attachLoginListeners() {
         const loginBtn = document.getElementById('login-btn');
         const emailInput = document.getElementById('email');
@@ -352,6 +442,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', handleDelete));
         document.querySelectorAll('.expand-btn').forEach(btn => btn.addEventListener('click', handleExpand));
         document.getElementById('clear-leaderboard-btn')?.addEventListener('click', handleClearLeaderboard);
+        
+        // New listeners for attempts
+        document.querySelectorAll('.view-attempt-btn').forEach(btn => btn.addEventListener('click', handleViewAttempt));
+        document.querySelectorAll('.delete-attempt-btn').forEach(btn => btn.addEventListener('click', handleDeleteAttempt));
     }
     
     async function handleClearLeaderboard() {
@@ -417,6 +511,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const id = e.currentTarget.dataset.id;
         setState({ expandedQuestionId: state.expandedQuestionId === id ? null : id });
     }
+    
+    function handleViewAttempt(e) {
+        const attemptId = e.currentTarget.dataset.id;
+        const attempt = state.examAttempts.find(a => a.id === attemptId);
+        setState({ viewingAttempt: attempt });
+    }
+
+    async function handleDeleteAttempt(e) {
+        const attemptDocId = e.currentTarget.dataset.id;
+        const examId = e.currentTarget.dataset.examId;
+        if (!confirm(`確定要刪除此筆作答紀錄嗎？\n這將會同時從資料庫和排行榜中移除，此操作無法復原。`)) {
+            return;
+        }
+
+        try {
+            const batch = db.batch();
+            
+            // 1. Delete the attempt record
+            const attemptRef = examAttemptsCollection.doc(attemptDocId);
+            batch.delete(attemptRef);
+
+            // 2. Find and delete the corresponding leaderboard record
+            if (examId) { // Only try to delete if examId exists
+                const leaderboardQuery = await leaderboardCollection.where('examId', '==', examId).limit(1).get();
+                if (!leaderboardQuery.empty) {
+                    const leaderboardDocId = leaderboardQuery.docs[0].id;
+                    const leaderboardRef = leaderboardCollection.doc(leaderboardDocId);
+                    batch.delete(leaderboardRef);
+                }
+            }
+
+            // 3. Commit the batch
+            await batch.commit();
+            alert('紀錄已成功刪除。');
+            
+            // 4. Refresh data
+            setState({ loadingAttempts: true });
+            loadExamAttempts();
+        } catch (error) {
+            console.error("Error deleting attempt:", error);
+            alert(`刪除紀錄時發生錯誤: ${error.message}`);
+        }
+    }
 
     async function handleFormSubmit(e) {
         e.preventDefault();
@@ -449,4 +586,59 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('儲存題目時發生錯誤。');
         }
     }
+    
+    function renderAnswerReview(questions, userAnswers) { // userAnswers is not needed here
+        let reviewHtml = `
+            <div class="answer-review-section">
+                <h3 class="answer-review-title">作答回顧</h3>
+        `;
+        
+        questions.forEach((q, index) => {
+            const userAnswer = q.userAnswer;
+            const isCorrect = userAnswer === q.answer;
+            const itemClass = isCorrect ? 'correct' : 'incorrect';
+            
+            reviewHtml += `
+                <div class="review-question-item ${itemClass}">
+                    <div class="review-question-content">
+                        <div class="review-question-number">${index + 1}</div>
+                        <div class="question-text">${q.content}</div>
+                    </div>
+                    <div class="review-options-list">
+                        ${q.options.map((opt, optIndex) => {
+                            let optionClass = '';
+                            let icon = '';
+                            const isUserAnswer = optIndex === userAnswer;
+                            const isCorrectAnswer = optIndex === q.answer;
+
+                            if (isCorrectAnswer) {
+                                optionClass = 'correct-answer';
+                                icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="color: var(--success-color);"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>`;
+                            }
+                            if (isUserAnswer && !isCorrectAnswer) {
+                                optionClass = 'user-selected';
+                                icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="color: var(--danger-color);"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"></path></svg>`;
+                            }
+
+                            return `
+                                <div class="review-option ${optionClass}">
+                                    ${icon || '<div class="review-option-icon"></div>'}
+                                    <span>${opt}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    ${q.explanation ? `
+                    <div class="explanation-box">
+                        <strong>詳解：</strong>
+                        <p>${q.explanation.replace(/\n/g, '<br>')}</p>
+                    </div>` : ''}
+                </div>
+            `;
+        });
+        
+        reviewHtml += `</div>`;
+        return reviewHtml;
+    }
+
 });

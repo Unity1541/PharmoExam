@@ -1,3 +1,4 @@
+
 # Firebase 設定指南
 
 本指南將引導您完成此線上考試系統所需的 Firebase 專案設定。
@@ -42,75 +43,94 @@
 4.  切換到「使用者」分頁，點擊「新增使用者」。
 5.  建立一個管理員帳號。您可以使用 `admin@example.com` 和一個您自訂的密碼。這個帳號將用來登入管理後台和題目上傳工具。
 
-## 步驟 5：建立 Firestore Database (資料庫)
+## 步驟 5：設定 Firestore Database (資料庫) 與安全性規則
 
-本專案使用 Firestore 來儲存試題和排行榜資料。
+這是最關鍵也最容易出錯的步驟。請務必仔細操作。
 
 1.  在 Firebase 控制台的左側導覽列，前往「建構」>「Firestore Database」。
 2.  點擊「建立資料庫」。
-3.  選擇在**測試模式**下啟動。這會允許應用程式在初期開發階段自由讀寫資料。
-    > **警告**：測試模式的安全性規則會在 30 天後到期。在正式部署前，請務必更新您的[安全性規則](https://firebase.google.com/docs/firestore/security/get-started)以保護您的資料。
-4.  選擇離您最近的 Cloud Firestore 位置，然後點擊「啟用」。
+3.  選擇在**測試模式**下啟動，然後選擇離您最近的 Cloud Firestore 位置，點擊「啟用」。
+4.  建立後，系統會自動將您導向「資料」分頁。請點擊頂部的「**規則 (Rules)**」分頁。
+5.  將編輯器中的內容**全部刪除**，並貼上以下這段 **更完整且安全的規則**，然後點擊「**發佈 (Publish)**」：
+    ```
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+    
+        // 題庫 (questions) 集合的規則
+        match /questions/{questionId} {
+          // 允許任何人讀取題目 (讓考生可以看到題目)
+          allow read: if true;
+          // 只允許已登入的使用者(管理者)寫入、修改、刪除題目
+          allow write: if request.auth != null;
+        }
+    
+        // 排行榜 (leaderboard) 集合的規則
+        match /leaderboard/{scoreId} {
+          // 允許任何人讀取排行榜
+          allow read: if true;
+          // 允許任何人寫入成績 (讓考生可以提交分數)
+          allow write: if true;
+        }
+    
+        // 作答紀錄 (examAttempts) 集合的規則
+        match /examAttempts/{attemptId} {
+          // 允許任何人讀寫。
+          // 寫入是為了讓考生能儲存作答紀錄。
+          // 讀取是為了讓考生能查詢自己的歷史紀錄。
+          allow read, write: if true;
+        }
+      }
+    }
+    ```
+    > **⚠️ 安全性警告**: 這組規則在開發和初期使用上是安全的，但若要對外正式營運，建議您研究更嚴謹的[安全性規則](https://firebase.google.com/docs/firestore/security/get-started)，例如只允許使用者讀取自己的作答紀錄。
+
+
+## 步驟 6：建立 Firestore 索引 (重要)
+
+Firestore 需要索引才能支援特定的複雜查詢。**如果沒有建立必要的索引，相關功能 (如更新排行榜) 將會失敗**。
+
+**如何建立索引？**
+最簡單的方式是透過 Firebase 自動提供的連結：
+
+1.  在本機執行您的應用程式。
+2.  **以普通使用者的身分，完整地進行一次考試，直到最後提交答案。**
+3.  提交答案後，如果缺少索引，畫面上**應該會跳出一個關於「更新排行榜失敗」的提示視窗**。同時，請打開瀏覽器的**開發者工具 (Developer Tools)** (通常按 F12)，並切換到**主控台 (Console)** 標籤。
+4.  您應該會看到一條紅色的錯誤訊息，內容類似 `FAILED_PRECONDITION: The query requires an index...`。這條錯誤訊息中會包含一個**很長的藍色連結**。
+5.  **點擊該連結**。它會開啟一個新的瀏覽器分頁，直接帶您到 Firebase 控制台，並自動填好建立索引所需的所有設定。
+6.  檢查設定無誤後，點擊「建立索引」。索引建立需要幾分鐘時間，請耐心等候。建立完成後，重新整理頁面再試一次即可。
+
+### 目前必要的索引
+-   **集合**: `leaderboard`
+-   **欄位索引**: `subject` (遞增), `nickname_lowercase` (遞增)
+-   **查詢範圍**: 集合
+-   **集合**: `examAttempts`
+-   **欄位索引**: `nickname_lowercase` (遞增)
+-   **查詢範圍**: 集合
+
+---
+
+## 疑難排解 (Troubleshooting)
+
+### 錯誤：`Missing or insufficient permissions` (遺失或權限不足)
+
+如果您在提交考試後，看到這個錯誤訊息，這**100%** 是您的 **Firestore 安全性規則** 設定有問題。
+
+**解決方法：**
+
+請直接回到本文件的【步驟 5】，檢查您的 Firestore「規則 (Rules)」是否**完整包含** `questions`, `leaderboard`, 和 `examAttempts` 這三個集合的規則。最常見的錯誤是**缺少 `examAttempts` 的存取規則**。
+
+---
 
 ## 資料庫結構
 
-您的 Firestore 資料庫將會自動建立以下兩個集合 (Collections)：
+您的 Firestore 資料庫將會自動建立以下幾個集合 (Collections)：
 
 ### 1. `questions` 集合
-
-此集合用於存放所有考試題目。每份文件 (Document) 代表一道題目。
-
--   **文件 ID**: 自動產生的唯一 ID
--   **欄位 (Fields)**:
-    -   `year` (String): 題目年份，例如 `"2024"`。
-    -   `subject` (String): 考試科目，例如 `"藥理藥化"`。
-    -   `examType` (String): 考試類型，例如 `"第一次藥師考試"`、`"第二次藥師考試"` 或 `"小考練習區"`。
-    -   `content` (String): 題目的完整內容。
-    -   `options` (Array of Strings): 一個包含四個選項字串的陣列。
-    -   `answer` (Number): 正確答案的索引值 (0-3 對應 A-D)。
-    -   `explanation` (String): 題目的詳解文字 (可以為空字串)。
-
-**文件範例:**
-```json
-{
-  "year": "2024",
-  "subject": "藥理藥化",
-  "examType": "第一次藥師考試",
-  "content": "下列何者為鴉片類止痛劑？",
-  "options": [
-    "Aspirin",
-    "Ibuprofen",
-    "Morphine",
-    "Acetaminophen"
-  ],
-  "answer": 2,
-  "explanation": "Morphine 是一種強效的鴉片類(opioid)止痛劑，常用於緩解中度至重度疼痛。"
-}
-```
+此集合用於存放所有考試題目。
 
 ### 2. `leaderboard` 集合
-
 此集合用於儲存所有考生的成績，以建立排行榜。
 
--   **文件 ID**: 自動產生的唯一 ID
--   **欄位 (Fields)**:
-    -   `nickname` (String): 考生的暱稱。
-    -   `score` (Number): 考試成績 (0-100)。
-    -   `subject` (String): 參加考試的科目。
-    -   `year` (String): 參加考試的年份。
-    -   `examType` (String): 參加考試的類型。
-    -   `date` (Timestamp): 提交考試的伺服器時間戳。
-    -   `examId` (String): 一個當次考試的唯一識別碼，用來定位使用者當次的排名。
-
-**文件範例:**
-```json
-{
-  "nickname": "藥學之星",
-  "score": 95,
-  "subject": "藥物治療",
-  "year": "2024",
-  "examType": "第二次藥師考試",
-  "date": "May 20, 2024 at 10:30:00 AM UTC+8",
-  "examId": "exam_1716172200000"
-}
-```
+### 3. `examAttempts` 集合
+此集合用於儲存每一次完整的作答紀錄，供使用者查詢。

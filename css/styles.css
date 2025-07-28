@@ -1488,3 +1488,142 @@ select {
     display: block;
     margin-bottom: var(--spacing-2);
 }
+
+/* ========= History Search Section ========= */
+.history-section {
+    margin-top: var(--spacing-16);
+    padding: var(--spacing-8);
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.history-search-box {
+    max-width: 600px;
+    margin: 0 auto var(--spacing-8) auto;
+    text-align: center;
+    padding: var(--spacing-8);
+}
+.history-search-box .form-group {
+    max-width: 400px;
+    margin: 0 auto var(--spacing-6) auto;
+}
+#history-results-container {
+    display: grid;
+    gap: var(--spacing-4);
+}
+.history-item {
+    background-color: rgba(255, 255, 255, 0.6);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-4) var(--spacing-6);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+.history-item:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow);
+    border-color: var(--primary-color);
+}
+.history-item-info {
+    flex-grow: 1;
+}
+.history-item-info h4 {
+    font-weight: 600;
+    color: var(--dark-text);
+}
+.history-item-info p {
+    font-size: 0.9rem;
+    color: var(--secondary-color);
+}
+.history-item-score {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-left: var(--spacing-4);
+}
+
+/* ========= Modal Styles ========= */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(30, 41, 59, 0.8);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: var(--spacing-4);
+    overflow-y: auto;
+}
+.modal-content {
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: var(--spacing-8);
+    position: relative;
+    animation: fadeIn 0.3s ease forwards;
+}
+.modal-close {
+    position: absolute;
+    top: var(--spacing-4);
+    right: var(--spacing-4);
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: var(--secondary-color);
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s;
+}
+.modal-close:hover {
+    color: var(--dark-text);
+}
+
+
+/* ========= Admin Panel Attempt Management Styles ========= */
+.attempt-list {
+    display: grid;
+    gap: var(--spacing-6);
+}
+.attempt-item {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    padding: var(--spacing-6);
+    border-left: 4px solid var(--secondary-color);
+}
+.attempt-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-2);
+}
+.attempt-item-info {
+    flex-grow: 1;
+}
+.attempt-item-info .nickname {
+    font-weight: 600;
+    font-size: 1.2rem;
+    color: var(--dark-text);
+}
+.attempt-item-info .date {
+    font-size: 0.85rem;
+    color: var(--muted-text);
+    margin-top: var(--spacing-1);
+}
+.attempt-item-actions {
+    display: flex;
+    gap: var(--spacing-3);
+    flex-shrink: 0;
+    margin-left: var(--spacing-4);
+}

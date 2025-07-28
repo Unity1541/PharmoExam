@@ -17,10 +17,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const usePreviewMode = !isFirebaseConfigured();
     const leaderboardCollection = usePreviewMode ? null : db.collection('leaderboard');
+    const examAttemptsCollection = usePreviewMode ? null : db.collection('examAttempts');
     
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
     
+    // History search elements
+    const historyNicknameInput = document.getElementById('history-nickname-input');
+    const searchHistoryBtn = document.getElementById('search-history-btn');
+    const historyResultsContainer = document.getElementById('history-results-container');
+    const reviewModal = document.getElementById('review-modal');
+    const modalBody = document.getElementById('modal-body');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+
     // 科目映射
     const subjectMapping = {
         'pharmacology': '藥理藥化',
@@ -91,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             let leaderboardData = snapshot.docs.map(doc => doc.data());
             
-            // Client-side sorting
+            // Client-side sorting: sort by score desc, then by date desc (newer first)
             leaderboardData.sort((a, b) => {
                 if (b.score !== a.score) {
                     return b.score - a.score;
@@ -139,5 +148,149 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         html += '</div>';
         container.innerHTML = html;
+    }
+
+    // --- History Search Functionality ---
+
+    if (!usePreviewMode) {
+        searchHistoryBtn.addEventListener('click', searchHistory);
+        historyNicknameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchHistory();
+            }
+        });
+        modalCloseBtn.addEventListener('click', () => {
+            reviewModal.style.display = 'none';
+        });
+        reviewModal.addEventListener('click', (e) => {
+            if (e.target === reviewModal) {
+                reviewModal.style.display = 'none';
+            }
+        });
+    } else {
+        // Disable search in preview mode
+        historyNicknameInput.disabled = true;
+        searchHistoryBtn.disabled = true;
+        historyResultsContainer.innerHTML = '<p class="no-data" style="text-align: center;">此功能在預覽模式下不可用。</p>';
+    }
+
+    async function searchHistory() {
+        const nickname = historyNicknameInput.value.trim();
+        if (!nickname) {
+            historyResultsContainer.innerHTML = '<p class="no-data" style="text-align: center;">請輸入一個暱稱進行查詢。</p>';
+            return;
+        }
+
+        historyResultsContainer.innerHTML = '<div class="loading-spinner">正在查詢紀錄...</div>';
+        
+        const nicknameLower = nickname.toLowerCase();
+
+        try {
+            // Query by the lowercase nickname to avoid case-sensitivity issues.
+            const snapshot = await examAttemptsCollection
+                .where('nickname_lowercase', '==', nicknameLower)
+                .get();
+            
+            if (snapshot.empty) {
+                historyResultsContainer.innerHTML = `<p class="no-data" style="text-align: center;">找不到暱稱為「${nickname}」的考試紀錄。</p>`;
+                return;
+            }
+
+            // Map and sort results on the client side.
+            let attempts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            attempts.sort((a, b) => (b.date?.toMillis() || 0) - (a.date?.toMillis() || 0));
+
+            renderHistoryResults(attempts);
+
+        } catch (error) {
+            console.error("Error searching history:", error);
+            historyResultsContainer.innerHTML = `<p class="no-data" style="text-align: center;">查詢時發生錯誤，請稍後再試。</p>`;
+        }
+    }
+
+    function renderHistoryResults(attempts) {
+        let html = attempts.map(attempt => {
+            const attemptDate = attempt.date ? new Date(attempt.date.seconds * 1000).toLocaleString('zh-TW') : 'N/A';
+            return `
+                <div class="history-item" data-attempt-id="${attempt.id}">
+                    <div class="history-item-info">
+                        <h4>${attempt.year} ${attempt.leaderboardCategory} (${attempt.examType})</h4>
+                        <p>考試日期：${attemptDate}</p>
+                    </div>
+                    <div class="history-item-score">${attempt.score}</div>
+                </div>
+            `;
+        }).join('');
+
+        historyResultsContainer.innerHTML = html;
+
+        // Attach listeners to new items
+        document.querySelectorAll('.history-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const attemptId = item.dataset.attemptId;
+                const selectedAttempt = attempts.find(a => a.id === attemptId);
+                showReviewModal(selectedAttempt);
+            });
+        });
+    }
+
+    function showReviewModal(attempt) {
+        if (!attempt) return;
+        modalBody.innerHTML = renderAnswerReview(attempt.questions);
+        reviewModal.style.display = 'flex';
+    }
+
+    function renderAnswerReview(questions) {
+        let reviewHtml = `
+            <div class="answer-review-section">
+                <h3 class="answer-review-title">作答回顧</h3>
+        `;
+        
+        questions.forEach((q, index) => {
+            const userAnswer = q.userAnswer;
+            const isCorrect = userAnswer === q.answer;
+            const itemClass = isCorrect ? 'correct' : 'incorrect';
+            
+            reviewHtml += `
+                <div class="review-question-item ${itemClass}">
+                    <div class="review-question-content">
+                        <div class="review-question-number">${index + 1}</div>
+                        <div class="question-text">${q.content}</div>
+                    </div>
+                    <div class="review-options-list">
+                        ${q.options.map((opt, optIndex) => {
+                            let optionClass = '';
+                            let icon = '';
+                            const isUserAnswer = optIndex === userAnswer;
+                            const isCorrectAnswer = optIndex === q.answer;
+
+                            if (isCorrectAnswer) {
+                                optionClass = 'correct-answer';
+                                icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="color: var(--success-color);"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>`;
+                            }
+                            if (isUserAnswer && !isCorrectAnswer) {
+                                optionClass = 'user-selected';
+                                icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="color: var(--danger-color);"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"></path></svg>`;
+                            }
+
+                            return `
+                                <div class="review-option ${optionClass}">
+                                    ${icon || '<div class="review-option-icon"></div>'}
+                                    <span>${opt}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    ${q.explanation ? `
+                    <div class="explanation-box">
+                        <strong>詳解：</strong>
+                        <p>${q.explanation.replace(/\n/g, '<br>')}</p>
+                    </div>` : ''}
+                </div>
+            `;
+        });
+        
+        reviewHtml += `</div>`;
+        return reviewHtml;
     }
 });

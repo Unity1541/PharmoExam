@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     const examContainer = document.getElementById('exam-container');
     // Super-gatekeeper: Check for initialization errors first.
@@ -22,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const usePreviewMode = !isFirebaseConfigured();
     const questionsCollection = usePreviewMode ? null : db.collection('questions');
     const leaderboardCollection = usePreviewMode ? null : db.collection('leaderboard');
+    const examAttemptsCollection = usePreviewMode ? null : db.collection('examAttempts');
     
     const allSubjects = ['藥理藥化', '生物藥劑', '藥物分析', '藥事行政法規', '藥物治療', '藥劑學', '生藥學'];
     const availableExamTypes = ['第一次藥師考試', '第二次藥師考試', '小考練習區'];
@@ -309,45 +311,92 @@ document.addEventListener('DOMContentLoaded', () => {
         currentQuestions.forEach(q => { if (answers[q.id] === q.answer) correctCount++; });
         score = currentQuestions.length > 0 ? Math.round((correctCount / currentQuestions.length) * 100) : 0;
         
-        if (!usePreviewMode) {
-            await updateLeaderboard();
+        if (usePreviewMode) {
+            currentStep = 5;
+            updateUI();
+            return;
         }
 
+        // --- New split error handling ---
+        let attemptSaved = false;
+        try {
+            await saveExamAttempt();
+            attemptSaved = true; // This will now create the examAttempts collection
+        } catch (error) {
+            console.error("CRITICAL: Failed to save the detailed exam attempt record.", error);
+            const isPermissionError = error.message.toLowerCase().includes('permission');
+            const userFriendlyMessage = isPermissionError
+                ? `這通常表示您的 Firestore 安全性規則不允許寫入資料。請檢查 Firebase 控制台中的「Firestore Database > 規則」分頁設定，或參考 FIREBASE_SETUP.md 的疑難排解部分。`
+                : `請檢查您的網路連線或 Firebase 設定。`;
+            
+            alert(`發生嚴重錯誤，無法儲存您的作答紀錄。\n\n您的分數是 ${score} 分，但詳細紀錄遺失。\n\n錯誤訊息: ${error.message}\n\n${userFriendlyMessage}`);
+        }
+
+        // If attempt was saved, now try to update the leaderboard.
+        if (attemptSaved) {
+            try {
+                await updateLeaderboard();
+            } catch (error) {
+                console.error("NON-CRITICAL: Failed to update leaderboard, likely a missing index.", error);
+                alert(`您的作答紀錄已儲存成功，但更新排行榜時失敗了！\n\n這通常是因為缺少必要的資料庫索引。請打開瀏覽器開發人員主控台(F12)，找到錯誤訊息中的連結並點擊以建立索引。\n\n錯誤訊息: ${error.message}`);
+            }
+        }
+        
         currentStep = 5;
         updateUI();
     }
 
+    async function saveExamAttempt() {
+        const detailedQuestions = currentQuestions.map(q => ({
+            content: q.content,
+            options: q.options,
+            answer: q.answer,
+            explanation: q.explanation || '',
+            userAnswer: answers[q.id] === null ? -1 : answers[q.id]
+        }));
+    
+        const attemptData = {
+            examId: latestExamId,
+            nickname: nickname,
+            nickname_lowercase: nickname.toLowerCase(),
+            year: selectedYear,
+            subject: selectedSubject,
+            examType: selectedExamType,
+            score: score,
+            date: firebase.firestore.FieldValue.serverTimestamp(),
+            questions: detailedQuestions,
+            leaderboardCategory: selectedExamType === '小考練習區' ? '小考練習區' : selectedSubject
+        };
+    
+        // This is a simple add operation and should not require a composite index.
+        await examAttemptsCollection.add(attemptData);
+    }
+
     async function updateLeaderboard() {
-        // If the exam type is '小考練習區', we group it under its own leaderboard category.
-        // Otherwise, we group it by the subject.
         const leaderboardCategory = selectedExamType === '小考練習區' ? '小考練習區' : selectedSubject;
 
         const userRecord = {
             nickname,
+            nickname_lowercase: nickname.toLowerCase(),
             score,
-            subject: leaderboardCategory, // Use the determined category for leaderboard grouping
+            subject: leaderboardCategory,
             year: selectedYear,
             examType: selectedExamType,
             date: firebase.firestore.FieldValue.serverTimestamp(),
             examId: latestExamId
         };
 
-        try {
-            const querySnapshot = await leaderboardCollection
-                .where('subject', '==', leaderboardCategory) // Query using the leaderboard category
-                .where('nickname', '==', nickname)
-                .get();
+        // This query requires a composite index on (subject, nickname_lowercase)
+        const querySnapshot = await leaderboardCollection
+            .where('subject', '==', leaderboardCategory)
+            .where('nickname_lowercase', '==', nickname.toLowerCase())
+            .get();
 
-            if (!querySnapshot.empty) {
-                // To simplify, we always update the latest score for a given user in a category.
-                // A more complex logic could be to only update if the new score is higher.
-                const docId = querySnapshot.docs[0].id;
-                await leaderboardCollection.doc(docId).update(userRecord);
-            } else {
-                await leaderboardCollection.add(userRecord);
-            }
-        } catch (error) {
-            console.error("Error updating leaderboard:", error);
+        if (!querySnapshot.empty) {
+            const docId = querySnapshot.docs[0].id;
+            await leaderboardCollection.doc(docId).update(userRecord);
+        } else {
+            await leaderboardCollection.add(userRecord);
         }
     }
 
@@ -358,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         
         questions.forEach((q, index) => {
-            const userAnswer = userAnswers[q.id];
+            const userAnswer = q.userAnswer !== undefined ? q.userAnswer : userAnswers[q.id];
             const isCorrect = userAnswer === q.answer;
             const itemClass = isCorrect ? 'correct' : 'incorrect';
             
@@ -483,7 +532,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
             
-            html += renderAnswerReview(currentQuestions, answers);
+            const detailedQuestions = currentQuestions.map(q => ({
+                ...q,
+                userAnswer: answers[q.id]
+            }));
+            html += renderAnswerReview(detailedQuestions, {});
 
             resultStep.innerHTML = html;
         } catch (error) {
@@ -521,7 +574,11 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        html += renderAnswerReview(currentQuestions, answers);
+        const detailedQuestions = currentQuestions.map(q => ({
+            ...q,
+            userAnswer: answers[q.id]
+        }));
+        html += renderAnswerReview(detailedQuestions, {});
 
         resultStep.innerHTML = html;
     }
