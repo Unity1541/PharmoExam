@@ -1,9 +1,28 @@
 
 
+
 document.addEventListener('DOMContentLoaded', () => {
     const uploaderContainer = document.getElementById('uploader-container');
     let validatedQuestions = []; // To hold the parsed and validated questions
     let selectedConfig = { year: '', subject: '', examType: '' };
+    
+    const commonExamTypes = ['第一次藥師考試', '第二次藥師考試', '小考練習區'];
+    const pharmacognosyOnlyExamTypes = [
+        '生藥學緒論與研發',
+        '生物科技藥品',
+        '碳水化合物(醣類)',
+        '配糖體(苷類)',
+        '鞣質(鞣酸)',
+        '生物鹼',
+        '苯丙烷類',
+        '萜類化合物',
+        '揮發油',
+        '脂質',
+        '類固醇',
+        '樹脂',
+        '中藥學'
+    ];
+    const allExamTypesForPharmacognosy = [...commonExamTypes, ...pharmacognosyOnlyExamTypes];
 
     // Super-gatekeeper: Check for initialization errors first.
     if (window.firebaseInitializationError) {
@@ -96,23 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderUploaderTool(user) {
         const availableYears = ['2025', '2024', '2023', '2022', '2021'];
         const availableSubjects = ['藥理藥化', '生物藥劑', '藥物分析', '藥事行政法規', '藥物治療', '藥劑學', '生藥學'];
-        const availableExamTypes = [
-            '第一次藥師考試',
-            '第二次藥師考試',
-            '小考練習區',
-            '生藥學緒論與研發',
-            '生物科技藥品',
-            '碳水化合物(醣類)',
-            '配糖體(苷類)',
-            '鞣質(鞣酸)',
-            '生物鹼',
-            '苯丙烷類',
-            '萜類化合揮發油',
-            '脂質',
-            '類固醇',
-            '樹脂',
-            '中藥學'
-        ];
+        
         const jsonFormatExample = JSON.stringify([
             {
                 "content": "這是範例問題一的題目內容。",
@@ -189,8 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      <div class="form-group">
                         <label for="uploader-exam-type">考試類型</label>
                         <select id="uploader-exam-type" class="glass-select">
-                            <option value="" disabled selected>-- 選擇考試類型 --</option>
-                            ${availableExamTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+                            <option value="" disabled selected>-- 先選擇科目 --</option>
                         </select>
                     </div>
                 </div>
@@ -250,6 +252,23 @@ document.addEventListener('DOMContentLoaded', () => {
         passwordInput.addEventListener('keypress', (e) => e.key === 'Enter' && performLogin());
     }
 
+    function updateUploaderExamTypes() {
+        const subject = document.getElementById('uploader-subject').value;
+        const examTypeSelect = document.getElementById('uploader-exam-type');
+        if (!examTypeSelect) return;
+    
+        const examTypes = subject === '生藥學' 
+            ? allExamTypesForPharmacognosy
+            : commonExamTypes;
+    
+        let optionsHtml = `<option value="" disabled selected>-- 選擇考試類型 --</option>`;
+        optionsHtml += examTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+    
+        examTypeSelect.innerHTML = optionsHtml;
+        examTypeSelect.value = ''; 
+        checkConfigAndToggleDataSection();
+    }
+
     function checkConfigAndToggleDataSection() {
         const year = document.getElementById('uploader-year').value;
         const subject = document.getElementById('uploader-subject').value;
@@ -272,6 +291,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const configSelector = document.getElementById('config-selector');
         configSelector.addEventListener('change', checkConfigAndToggleDataSection);
+
+        document.getElementById('uploader-subject')?.addEventListener('change', updateUploaderExamTypes);
 
         document.getElementById('validate-btn')?.addEventListener('click', handleValidateJson);
         document.getElementById('upload-btn')?.addEventListener('click', handleUpload);

@@ -1,4 +1,5 @@
 
+
 document.addEventListener('DOMContentLoaded', () => {
     const adminContainer = document.getElementById('admin-container');
 
@@ -70,10 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const availableYears = ['2025', '2024', '2023', '2022', '2021'];
     const availableSubjects = ['藥理藥化', '生物藥劑', '藥物分析', '藥事行政法規', '藥物治療', '藥劑學', '生藥學'];
-    const availableExamTypes = [
-        '第一次藥師考試',
-        '第二次藥師考試',
-        '小考練習區',
+    const commonExamTypes = ['第一次藥師考試', '第二次藥師考試', '小考練習區'];
+    const pharmacognosyOnlyExamTypes = [
         '生藥學緒論與研發',
         '生物科技藥品',
         '碳水化合物(醣類)',
@@ -81,12 +80,14 @@ document.addEventListener('DOMContentLoaded', () => {
         '鞣質(鞣酸)',
         '生物鹼',
         '苯丙烷類',
-        '萜類化合揮發油',
+        '萜類化合物',
+        '揮發油',
         '脂質',
         '類固醇',
         '樹脂',
         '中藥學'
     ];
+    const allExamTypes = [...commonExamTypes, ...pharmacognosyOnlyExamTypes];
 
     let state = {
         isLoggedIn: false,
@@ -210,11 +211,33 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         attachLoginListeners();
     }
+
+    function updateFormExamTypes() {
+        const subject = document.getElementById('form-subject').value;
+        const examTypeSelect = document.getElementById('form-exam-type');
+        if (!examTypeSelect) return;
+        const currentExamTypeValue = examTypeSelect.value;
+    
+        const examTypes = subject === '生藥學' ? allExamTypes : commonExamTypes;
+        
+        examTypeSelect.innerHTML = examTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+        
+        if (examTypes.includes(currentExamTypeValue)) {
+            examTypeSelect.value = currentExamTypeValue;
+        }
+    }
     
     function renderAdminPanel() {
         const { loading, showForm, editingQuestionId, filters, user, viewingAttempt, loadingAttempts, selectedQuestionIds } = state;
         const editingQuestion = editingQuestionId ? state.questions.find(q => q.id === editingQuestionId) : null;
         const hasSelection = selectedQuestionIds.size > 0;
+        
+        const examTypesForFilter = filters.subject === '生藥學'
+            ? allExamTypes
+            : (filters.subject ? commonExamTypes : allExamTypes);
+
+        const formInitialSubject = editingQuestion?.subject;
+        const examTypesForForm = formInitialSubject === '生藥學' ? allExamTypes : commonExamTypes;
 
         adminContainer.innerHTML = `
             <div class="admin-panel fade-in">
@@ -246,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </select>
                     <select id="exam-type-filter">
                         <option value="">所有類型</option>
-                        ${availableExamTypes.map(t => `<option value="${t}" ${filters.examType === t ? 'selected' : ''}>${t}</option>`).join('')}
+                        ${examTypesForFilter.map(t => `<option value="${t}" ${filters.examType === t ? 'selected' : ''}>${t}</option>`).join('')}
                     </select>
                 </section>
 
@@ -269,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
                              <div class="form-group">
                                 <label for="form-exam-type">考試類型</label>
                                 <select id="form-exam-type" required>
-                                    ${availableExamTypes.map(t => `<option value="${t}" ${editingQuestion?.examType === t ? 'selected' : ''}>${t}</option>`).join('')}
+                                    ${examTypesForForm.map(t => `<option value="${t}" ${editingQuestion?.examType === t ? 'selected' : ''}>${t}</option>`).join('')}
                                 </select>
                             </div>
                             <div class="form-group full-width">
@@ -468,6 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('year-filter')?.addEventListener('change', handleFilterChange);
         document.getElementById('subject-filter')?.addEventListener('change', handleFilterChange);
         document.getElementById('exam-type-filter')?.addEventListener('change', handleFilterChange);
+        document.getElementById('form-subject')?.addEventListener('change', updateFormExamTypes);
         document.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', handleEdit));
         document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', handleDelete));
         document.querySelectorAll('.expand-btn').forEach(btn => btn.addEventListener('click', handleExpand));
@@ -505,6 +529,17 @@ document.addEventListener('DOMContentLoaded', () => {
             subject: document.getElementById('subject-filter').value,
             examType: document.getElementById('exam-type-filter').value,
         };
+
+        const currentSubject = document.getElementById('subject-filter').value;
+        const examTypeFilter = document.getElementById('exam-type-filter');
+        const examTypesForFilter = currentSubject === '生藥學'
+            ? allExamTypes
+            : (currentSubject ? commonExamTypes : allExamTypes);
+        
+        if (!examTypesForFilter.includes(examTypeFilter.value)) {
+            filters.examType = '';
+        }
+
         const filteredQuestions = state.questions.filter(q => {
             const searchMatch = q.content.toLowerCase().includes(filters.searchTerm.toLowerCase());
             const yearMatch = !filters.year || q.year === filters.year;
