@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     const adminContainer = document.getElementById('admin-container');
 
@@ -69,7 +70,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const availableYears = ['2025', '2024', '2023', '2022', '2021'];
     const availableSubjects = ['藥理藥化', '生物藥劑', '藥物分析', '藥事行政法規', '藥物治療', '藥劑學', '生藥學'];
-    const availableExamTypes = ['第一次藥師考試', '第二次藥師考試', '小考練習區'];
+    const availableExamTypes = [
+        '第一次藥師考試',
+        '第二次藥師考試',
+        '小考練習區',
+        '生藥學緒論與研發',
+        '生物科技藥品',
+        '碳水化合物(醣類)',
+        '配糖體(苷類)',
+        '鞣質(鞣酸)',
+        '生物鹼',
+        '苯丙烷類',
+        '萜類化合揮發油',
+        '脂質',
+        '類固醇',
+        '樹脂',
+        '中藥學'
+    ];
 
     let state = {
         isLoggedIn: false,
@@ -87,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
             examType: '',
         },
         expandedQuestionId: null,
+        selectedQuestionIds: new Set(),
         // Attempt state
         examAttempts: [],
         filteredExamAttempts: [],
@@ -194,8 +212,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function renderAdminPanel() {
-        const { loading, showForm, editingQuestionId, filters, user, viewingAttempt, loadingAttempts } = state;
+        const { loading, showForm, editingQuestionId, filters, user, viewingAttempt, loadingAttempts, selectedQuestionIds } = state;
         const editingQuestion = editingQuestionId ? state.questions.find(q => q.id === editingQuestionId) : null;
+        const hasSelection = selectedQuestionIds.size > 0;
 
         adminContainer.innerHTML = `
             <div class="admin-panel fade-in">
@@ -211,6 +230,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button id="add-question-btn" class="btn btn-primary">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         ${showForm && !editingQuestionId ? '取消新增' : '新增題目'}
+                    </button>
+                     <button id="delete-selected-btn" class="btn btn-secondary" style="background-color: var(--danger-color);" ${!hasSelection ? 'disabled' : ''}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        刪除選取 (${selectedQuestionIds.size})
                     </button>
                     <input type="search" id="search-input" placeholder="搜尋題目內容..." value="${filters.searchTerm}">
                     <select id="year-filter">
@@ -319,18 +342,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderQuestionList() {
-        const { filteredQuestions, expandedQuestionId } = state;
+        const { filteredQuestions, expandedQuestionId, selectedQuestionIds } = state;
 
         if (filteredQuestions.length === 0) {
             return '<div class="no-questions">找不到符合條件的題目，或尚未建立任何題目。</div>';
         }
+        
+        const areAllFilteredSelected = filteredQuestions.length > 0 && filteredQuestions.every(q => selectedQuestionIds.has(q.id));
 
         return `
+            <div class="question-list-actions" style="margin-bottom: 1rem; padding: 0.5rem 1rem; display: flex; align-items: center; background-color: rgba(238, 242, 255, 0.5); border-radius: var(--border-radius);">
+                <input type="checkbox" id="select-all-checkbox" style="margin-right: 0.75rem; transform: scale(1.2);" ${areAllFilteredSelected ? 'checked' : ''}>
+                <label for="select-all-checkbox" style="font-weight: 500; color: var(--secondary-color);">全選/取消全選目前顯示的 ${filteredQuestions.length} 個題目</label>
+            </div>
             <div class="question-list">
                 ${filteredQuestions.map(q => `
-                <div class="question-item" id="q-item-${q.id}">
+                <div class="question-item" id="q-item-${q.id}" style="${selectedQuestionIds.has(q.id) ? 'background-color: rgba(99, 102, 241, 0.05); border-left-color: #a5b4fc;' : ''}">
                     <div class="question-item-header">
-                        <div>
+                        <input type="checkbox" class="question-checkbox" data-id="${q.id}" ${selectedQuestionIds.has(q.id) ? 'checked' : ''} style="margin-right: 1.25rem; flex-shrink: 0; transform: scale(1.2); cursor: pointer;">
+                        <div style="flex-grow: 1;">
                             <div class="question-item-tags">
                                 <span class="tag">${q.year}</span>
                                 <span class="tag">${q.subject}</span>
@@ -443,7 +473,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.expand-btn').forEach(btn => btn.addEventListener('click', handleExpand));
         document.getElementById('clear-leaderboard-btn')?.addEventListener('click', handleClearLeaderboard);
         
-        // New listeners for attempts
+        // Listeners for multi-select
+        document.querySelectorAll('.question-checkbox').forEach(cb => cb.addEventListener('change', handleQuestionSelectionChange));
+        document.getElementById('select-all-checkbox')?.addEventListener('change', handleSelectAllChange);
+        document.getElementById('delete-selected-btn')?.addEventListener('click', handleDeleteSelected);
+        
+        // Listeners for attempts
         document.querySelectorAll('.view-attempt-btn').forEach(btn => btn.addEventListener('click', handleViewAttempt));
         document.querySelectorAll('.delete-attempt-btn').forEach(btn => btn.addEventListener('click', handleDeleteAttempt));
     }
@@ -512,6 +547,58 @@ document.addEventListener('DOMContentLoaded', () => {
         setState({ expandedQuestionId: state.expandedQuestionId === id ? null : id });
     }
     
+    function handleQuestionSelectionChange(e) {
+        const questionId = e.target.dataset.id;
+        const isChecked = e.target.checked;
+        const newSelectedIds = new Set(state.selectedQuestionIds);
+
+        if (isChecked) {
+            newSelectedIds.add(questionId);
+        } else {
+            newSelectedIds.delete(questionId);
+        }
+        setState({ selectedQuestionIds: newSelectedIds });
+    }
+
+    function handleSelectAllChange(e) {
+        const isChecked = e.target.checked;
+        const newSelectedIds = new Set(state.selectedQuestionIds);
+        
+        if (isChecked) {
+            state.filteredQuestions.forEach(q => newSelectedIds.add(q.id));
+        } else {
+            state.filteredQuestions.forEach(q => newSelectedIds.delete(q.id));
+        }
+        setState({ selectedQuestionIds: newSelectedIds });
+    }
+
+    async function handleDeleteSelected() {
+        const count = state.selectedQuestionIds.size;
+        if (count === 0) return;
+        if (!confirm(`確定要刪除選取的 ${count} 個題目嗎？此操作無法復原。`)) return;
+        
+        setState({ loading: true });
+
+        try {
+            const batch = db.batch();
+            state.selectedQuestionIds.forEach(id => {
+                const docRef = questionsCollection.doc(id);
+                batch.delete(docRef);
+            });
+            await batch.commit();
+
+            alert(`已成功刪除 ${count} 個題目。`);
+            
+            setState({ selectedQuestionIds: new Set() });
+            loadQuestions();
+            
+        } catch (error) {
+            console.error("Error deleting selected questions:", error);
+            alert('刪除題目時發生錯誤。');
+            setState({ loading: false });
+        }
+    }
+
     function handleViewAttempt(e) {
         const attemptId = e.currentTarget.dataset.id;
         const attempt = state.examAttempts.find(a => a.id === attemptId);

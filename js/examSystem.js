@@ -1,4 +1,5 @@
 
+
 document.addEventListener('DOMContentLoaded', () => {
     const examContainer = document.getElementById('exam-container');
     // Super-gatekeeper: Check for initialization errors first.
@@ -27,6 +28,23 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const allSubjects = ['藥理藥化', '生物藥劑', '藥物分析', '藥事行政法規', '藥物治療', '藥劑學', '生藥學'];
     const availableExamTypes = ['第一次藥師考試', '第二次藥師考試', '小考練習區'];
+    const pharmacognosyExamTypes = [
+        '第一次藥師考試',
+        '第二次藥師考試',
+        '小考練習區',
+        '生藥學緒論與研發',
+        '生物科技藥品',
+        '碳水化合物(醣類)',
+        '配糖體(苷類)',
+        '鞣質(鞣酸)',
+        '生物鹼',
+        '苯丙烷類',
+        '萜類化合揮發油',
+        '脂質',
+        '類固醇',
+        '樹脂',
+        '中藥學'
+    ];
     let allQuestions = [];
 
     // 狀態變量
@@ -158,13 +176,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 渲染考試類型選擇步驟
     function renderExamTypeStep() {
+        const currentExamTypes = selectedSubject === '生藥學' ? pharmacognosyExamTypes : availableExamTypes;
+
         let html = `
             <h2 class="step-title">選擇考試類型</h2>
             <p class="step-description">您選擇了 ${selectedYear} 年 ${selectedSubject}，請選擇考試類型：</p>
             <div class="selection-grid">
         `;
 
-        availableExamTypes.forEach(examType => {
+        currentExamTypes.forEach(examType => {
             const hasQuestions = allQuestions.some(q => 
                 q.year === selectedYear && 
                 q.subject === selectedSubject && 

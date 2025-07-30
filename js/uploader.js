@@ -1,4 +1,5 @@
 
+
 document.addEventListener('DOMContentLoaded', () => {
     const uploaderContainer = document.getElementById('uploader-container');
     let validatedQuestions = []; // To hold the parsed and validated questions
@@ -95,7 +96,23 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderUploaderTool(user) {
         const availableYears = ['2025', '2024', '2023', '2022', '2021'];
         const availableSubjects = ['藥理藥化', '生物藥劑', '藥物分析', '藥事行政法規', '藥物治療', '藥劑學', '生藥學'];
-        const availableExamTypes = ['第一次藥師考試', '第二次藥師考試', '小考練習區'];
+        const availableExamTypes = [
+            '第一次藥師考試',
+            '第二次藥師考試',
+            '小考練習區',
+            '生藥學緒論與研發',
+            '生物科技藥品',
+            '碳水化合物(醣類)',
+            '配糖體(苷類)',
+            '鞣質(鞣酸)',
+            '生物鹼',
+            '苯丙烷類',
+            '萜類化合揮發油',
+            '脂質',
+            '類固醇',
+            '樹脂',
+            '中藥學'
+        ];
         const jsonFormatExample = JSON.stringify([
             {
                 "content": "這是範例問題一的題目內容。",
