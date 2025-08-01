@@ -46,6 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
         '樹脂',
         '中藥學'
     ];
+    const pharmacologyExamTypes = [
+        '藥物效力學', '藥物動力學', '擬交感神經作用藥', '交感神經阻斷劑', '擬副交感神經作用藥', '膽鹼神經阻斷藥', '神經肌肉阻斷劑', '神經節阻斷劑', '鎮靜催眠藥', '抗精神病藥', '抗憂鬱藥', '抗焦慮症藥', '抗躁鬱藥', '抗癲癇藥', '抗帕金森藥', '肌肉疾病用藥', '全身麻醉溶劑', '局部麻醉溶劑', '中樞興奮藥、濫用藥物', '麻醉性鎮痛藥', '非固醇類抗炎鎮痛藥', '抗痛風藥', '風濕性關節炎治療藥物', '自泌素及相關藥物', '抗組織胺藥', '抗高血壓藥', '心臟衰竭治療藥物', '利尿劑', '降血脂藥', '心絞痛治療藥物', '心律不整治療藥物', '血栓症治療藥物', '貧血、血液疾病治療藥物', '糖尿病治療藥物', '甲状腺疾病治療藥物', '下視丘及腦下垂體激素', '腎上腺類固醇激素', '雄性激素', '雌性激素', '黃體激素', '鈣調節藥', '抗生素', '抗感染藥物', '抗病毒藥物', '抗黴菌藥物', '抗分枝桿菌藥物 (結核病、痲瘋)', '抗原蟲藥物、驅蟲蟲藥', '抗癌藥物、化學治療藥', '免疫抑制藥、免疫調節藥', '基因療法', '消化性潰瘍用藥', '腹瀉、便秘、腸道疾病用藥', '呼吸道疾病用藥', '止吐藥、鎮咳劑', '皮膚疾病用藥', '重金屬及藥物中毒的解毒藥', '中草藥及天然物'
+    ];
     let allQuestions = [];
 
     // 狀態變量
@@ -177,39 +180,88 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 渲染考試類型選擇步驟
     function renderExamTypeStep() {
-        const currentExamTypes = selectedSubject === '生藥學' ? pharmacognosyExamTypes : availableExamTypes;
+        if (selectedSubject === '藥理藥化') {
+            // Use dropdown for pharmacology
+            let html = `
+                <h2 class="step-title">選擇考試章節</h2>
+                <p class="step-description">您選擇了 ${selectedYear} 年 ${selectedSubject}，請從下方選單選擇一個小節開始測驗。</p>
+                <div class="select-container">
+                    <div class="select-wrapper">
+                        <select id="exam-type-select" class="glass-select">
+                            <option value="" disabled selected>-- 選擇一個章節 --</option>
+            `;
 
-        let html = `
-            <h2 class="step-title">選擇考試類型</h2>
-            <p class="step-description">您選擇了 ${selectedYear} 年 ${selectedSubject}，請選擇考試類型：</p>
-            <div class="selection-grid">
-        `;
-
-        currentExamTypes.forEach(examType => {
-            const hasQuestions = allQuestions.some(q => 
-                q.year === selectedYear && 
-                q.subject === selectedSubject && 
-                q.examType === examType
-            );
-            const disabledClass = hasQuestions ? '' : 'disabled';
-
+            const allPharmacologyTypes = [...availableExamTypes, ...pharmacologyExamTypes];
+            allPharmacologyTypes.forEach(examType => {
+                const hasQuestions = allQuestions.some(q => 
+                    q.year === selectedYear && 
+                    q.subject === selectedSubject && 
+                    q.examType === examType
+                );
+                const disabledAttr = hasQuestions ? '' : 'disabled';
+                const label = hasQuestions ? examType : `${examType} (無題目)`;
+                html += `<option value="${examType}" ${disabledAttr}>${label}</option>`;
+            });
+            
             html += `
-                <div class="selection-card ${disabledClass}" data-exam-type="${examType}" ${!hasQuestions ? 'aria-disabled="true"' : ''}>
-                    <h3>${examType}</h3>
-                    <p>${hasQuestions ? '點擊開始測驗' : '此分類下尚無試題'}</p>
+                        </select>
+                    </div>
+                </div>
+                <div class="button-container">
+                    <button id="start-exam-from-select" class="btn btn-primary">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        開始測驗
+                    </button>
                 </div>
             `;
-        });
+            examTypeStep.innerHTML = html;
 
-        html += `</div>`;
-        examTypeStep.innerHTML = html;
-
-        document.querySelectorAll('.selection-card:not(.disabled)').forEach(card => {
-            card.addEventListener('click', () => {
-                selectedExamType = card.getAttribute('data-exam-type');
-                startExam();
+            document.getElementById('start-exam-from-select').addEventListener('click', () => {
+                const selectElement = document.getElementById('exam-type-select');
+                if (selectElement.value) {
+                    selectedExamType = selectElement.value;
+                    startExam();
+                } else {
+                    alert('請選擇一個章節');
+                }
             });
-        });
+
+        } else {
+            // Existing card logic for other subjects
+            const currentExamTypes = selectedSubject === '生藥學' ? pharmacognosyExamTypes : availableExamTypes;
+
+            let html = `
+                <h2 class="step-title">選擇考試類型</h2>
+                <p class="step-description">您選擇了 ${selectedYear} 年 ${selectedSubject}，請選擇考試類型：</p>
+                <div class="selection-grid">
+            `;
+
+            currentExamTypes.forEach(examType => {
+                const hasQuestions = allQuestions.some(q => 
+                    q.year === selectedYear && 
+                    q.subject === selectedSubject && 
+                    q.examType === examType
+                );
+                const disabledClass = hasQuestions ? '' : 'disabled';
+
+                html += `
+                    <div class="selection-card ${disabledClass}" data-exam-type="${examType}" ${!hasQuestions ? 'aria-disabled="true"' : ''}>
+                        <h3>${examType}</h3>
+                        <p>${hasQuestions ? '點擊開始測驗' : '此分類下尚無試題'}</p>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            examTypeStep.innerHTML = html;
+
+            document.querySelectorAll('.selection-card:not(.disabled)').forEach(card => {
+                card.addEventListener('click', () => {
+                    selectedExamType = card.getAttribute('data-exam-type');
+                    startExam();
+                });
+            });
+        }
     }
 
 

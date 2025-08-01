@@ -22,7 +22,12 @@ document.addEventListener('DOMContentLoaded', () => {
         '樹脂',
         '中藥學'
     ];
+    const pharmacologyExamTypes = [
+        '藥物效力學', '藥物動力學', '擬交感神經作用藥', '交感神經阻斷劑', '擬副交感神經作用藥', '膽鹼神經阻斷藥', '神經肌肉阻斷劑', '神經節阻斷劑', '鎮靜催眠藥', '抗精神病藥', '抗憂鬱藥', '抗焦慮症藥', '抗躁鬱藥', '抗癲癇藥', '抗帕金森藥', '肌肉疾病用藥', '全身麻醉溶劑', '局部麻醉溶劑', '中樞興奮藥、濫用藥物', '麻醉性鎮痛藥', '非固醇類抗炎鎮痛藥', '抗痛風藥', '風濕性關節炎治療藥物', '自泌素及相關藥物', '抗組織胺藥', '抗高血壓藥', '心臟衰竭治療藥物', '利尿劑', '降血脂藥', '心絞痛治療藥物', '心律不整治療藥物', '血栓症治療藥物', '貧血、血液疾病治療藥物', '糖尿病治療藥物', '甲状腺疾病治療藥物', '下視丘及腦下垂體激素', '腎上腺類固醇激素', '雄性激素', '雌性激素', '黃體激素', '鈣調節藥', '抗生素', '抗感染藥物', '抗病毒藥物', '抗黴菌藥物', '抗分枝桿菌藥物 (結核病、痲瘋)', '抗原蟲藥物、驅蟲蟲藥', '抗癌藥物、化學治療藥', '免疫抑制藥、免疫調節藥', '基因療法', '消化性潰瘍用藥', '腹瀉、便秘、腸道疾病用藥', '呼吸道疾病用藥', '止吐藥、鎮咳劑', '皮膚疾病用藥', '重金屬及藥物中毒的解毒藥', '中草藥及天然物'
+    ];
+
     const allExamTypesForPharmacognosy = [...commonExamTypes, ...pharmacognosyOnlyExamTypes];
+    const allExamTypesForPharmacology = [...commonExamTypes, ...pharmacologyExamTypes];
 
     // Super-gatekeeper: Check for initialization errors first.
     if (window.firebaseInitializationError) {
@@ -257,9 +262,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const examTypeSelect = document.getElementById('uploader-exam-type');
         if (!examTypeSelect) return;
     
-        const examTypes = subject === '生藥學' 
-            ? allExamTypesForPharmacognosy
-            : commonExamTypes;
+        let examTypes;
+        if (subject === '生藥學') {
+            examTypes = allExamTypesForPharmacognosy;
+        } else if (subject === '藥理藥化') {
+            examTypes = allExamTypesForPharmacology;
+        } else {
+            examTypes = commonExamTypes;
+        }
     
         let optionsHtml = `<option value="" disabled selected>-- 選擇考試類型 --</option>`;
         optionsHtml += examTypes.map(t => `<option value="${t}">${t}</option>`).join('');
