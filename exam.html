@@ -40,53 +40,37 @@
                 <div class="button-container">
                     <button id="start-btn" class="btn btn-primary">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                        開始考試
-                    </button>
-                </div>
-            </div>
-            
-            <!-- 步驟 1: 選擇年份 (隱藏) -->
-            <div id="year-step" class="glass-card fade-in" style="display: none;">
-                <h2 class="step-title">選擇考試年度</h2>
-                <p class="step-description">請選擇您要測驗的考試年度</p>
-                
-                <div class="select-container">
-                    <div class="select-wrapper">
-                        <select id="year-select" class="glass-select">
-                            <option value="" disabled selected>-- 選擇年度 --</option>
-                            <option value="2025">2025年</option>
-                            <option value="2024">2024年</option>
-                            <option value="2023">2023年</option>
-                            <option value="2022">2022年</option>
-                            <option value="2021">2021年</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="button-container">
-                    <button id="year-next-btn" class="btn btn-primary">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                         下一步
                     </button>
                 </div>
             </div>
             
-            <!-- 步驟 2: 選擇科目 (隱藏) -->
-            <div id="subject-step" class="glass-card fade-in" style="display: none;">
-                <!-- 科目選擇內容 -->
+            <!-- 步驟 1: 選擇專區 (隱藏) -->
+            <div id="area-step" class="glass-card fade-in" style="display: none;">
+                <!-- 專區選擇內容將由 JS 動態生成 -->
             </div>
 
-            <!-- 步驟 3: 選擇考試類型 (隱藏) -->
-            <div id="exam-type-step" class="glass-card fade-in" style="display: none;">
-                <!-- 考試類型選擇內容 -->
+            <!-- 動態步驟 2 (隱藏) -->
+            <div id="dynamic-step-1" class="glass-card fade-in" style="display: none;">
+                <!-- 內容將由 JS 動態生成 -->
             </div>
             
-            <!-- 步驟 4: 考試進行中 (隱藏) -->
+            <!-- 動態步驟 3 (隱藏) -->
+            <div id="dynamic-step-2" class="glass-card fade-in" style="display: none;">
+                <!-- 內容將由 JS 動態生成 -->
+            </div>
+
+             <!-- 動態步驟 4 (隱藏) -->
+            <div id="dynamic-step-3" class="glass-card fade-in" style="display: none;">
+                <!-- 內容將由 JS 動態生成 -->
+            </div>
+            
+            <!-- 考試進行中 (隱藏) -->
             <div id="exam-step" class="fade-in" style="display: none;">
                 <!-- 考試內容 -->
             </div>
             
-            <!-- 步驟 5: 考試結果 (隱藏) -->
+            <!-- 考試結果 (隱藏) -->
             <div id="result-step" class="glass-card fade-in" style="display: none;">
                 <!-- 結果內容 -->
             </div>

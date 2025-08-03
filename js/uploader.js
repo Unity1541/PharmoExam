@@ -4,30 +4,21 @@
 document.addEventListener('DOMContentLoaded', () => {
     const uploaderContainer = document.getElementById('uploader-container');
     let validatedQuestions = []; // To hold the parsed and validated questions
-    let selectedConfig = { year: '', subject: '', examType: '' };
-    
-    const commonExamTypes = ['第一次藥師考試', '第二次藥師考試', '小考練習區'];
-    const pharmacognosyOnlyExamTypes = [
-        '生藥學緒論與研發',
-        '生物科技藥品',
-        '碳水化合物(醣類)',
-        '配糖體(苷類)',
-        '鞣質(鞣酸)',
-        '生物鹼',
-        '苯丙烷類',
-        '萜類化合物',
-        '揮發油',
-        '脂質',
-        '類固醇',
-        '樹脂',
-        '中藥學'
-    ];
-    const pharmacologyExamTypes = [
-        '藥物效力學', '藥物動力學', '擬交感神經作用藥', '交感神經阻斷劑', '擬副交感神經作用藥', '膽鹼神經阻斷藥', '神經肌肉阻斷劑', '神經節阻斷劑', '鎮靜催眠藥', '抗精神病藥', '抗憂鬱藥', '抗焦慮症藥', '抗躁鬱藥', '抗癲癇藥', '抗帕金森藥', '肌肉疾病用藥', '全身麻醉溶劑', '局部麻醉溶劑', '中樞興奮藥、濫用藥物', '麻醉性鎮痛藥', '非固醇類抗炎鎮痛藥', '抗痛風藥', '風濕性關節炎治療藥物', '自泌素及相關藥物', '抗組織胺藥', '抗高血壓藥', '心臟衰竭治療藥物', '利尿劑', '降血脂藥', '心絞痛治療藥物', '心律不整治療藥物', '血栓症治療藥物', '貧血、血液疾病治療藥物', '糖尿病治療藥物', '甲状腺疾病治療藥物', '下視丘及腦下垂體激素', '腎上腺類固醇激素', '雄性激素', '雌性激素', '黃體激素', '鈣調節藥', '抗生素', '抗感染藥物', '抗病毒藥物', '抗黴菌藥物', '抗分枝桿菌藥物 (結核病、痲瘋)', '抗原蟲藥物、驅蟲蟲藥', '抗癌藥物、化學治療藥', '免疫抑制藥、免疫調節藥', '基因療法', '消化性潰瘍用藥', '腹瀉、便秘、腸道疾病用藥', '呼吸道疾病用藥', '止吐藥、鎮咳劑', '皮膚疾病用藥', '重金屬及藥物中毒的解毒藥', '中草藥及天然物'
-    ];
+    let selectedConfig = { area: '', year: '', subject: '', examType: '' };
 
-    const allExamTypesForPharmacognosy = [...commonExamTypes, ...pharmacognosyOnlyExamTypes];
-    const allExamTypesForPharmacology = [...commonExamTypes, ...pharmacologyExamTypes];
+    // Data Definitions
+    const examAreas = ['國考區', '各科練習題', '小考練習區'];
+    const availableYears = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017'];
+    const availableSubjects = ['藥理藥化', '生物藥劑', '藥物分析', '藥事行政法規', '藥物治療', '藥劑學', '生藥學'];
+    
+    const nationalExamTypes = ['第一次藥師考試', '第二次藥師考試'];
+    const quizExamType = '綜合測驗';
+    const practiceChapters = {
+        '藥理藥化': ['藥物效力學', '藥物動力學', '擬交感神經作用藥', '交感神經阻斷劑', '擬副交感神經作用藥', '膽鹼神經阻斷藥', '神經肌肉阻斷劑', '神經節阻斷劑', '鎮靜催眠藥', '抗精神病藥', '抗憂鬱藥', '抗焦慮症藥', '抗躁鬱藥', '抗癲癇藥', '抗帕金森藥', '肌肉疾病用藥', '全身麻醉溶劑', '局部麻醉溶劑', '中樞興奮藥、濫用藥物', '麻醉性鎮痛藥', '非固醇類抗炎鎮痛藥', '抗痛風藥', '風濕性關節炎治療藥物', '自泌素及相關藥物', '抗組織胺藥', '抗高血壓藥', '心臟衰竭治療藥物', '利尿劑', '降血脂藥', '心絞痛治療藥物', '心律不整治療藥物', '血栓症治療藥物', '貧血、血液疾病治療藥物', '糖尿病治療藥物', '甲状腺疾病治療藥物', '下視丘及腦下垂體激素', '腎上腺類固醇激素', '雄性激素', '雌性激素', '黃體激素', '鈣調節藥', '抗生素', '抗感染藥物', '抗病毒藥物', '抗黴菌藥物', '抗分枝桿菌藥物 (結核病、痲瘋)', '抗原蟲藥物、驅蟲蟲藥', '抗癌藥物、化學治療藥', '免疫抑制藥、免疫調節藥', '基因療法', '消化性潰瘍用藥', '腹瀉、便秘、腸道疾病用藥', '呼吸道疾病用藥', '止吐藥、鎮咳劑', '皮膚疾病用藥', '重金屬及藥物中毒的解毒藥', '中草藥及天然物'],
+        '生藥學': ['生藥學緒論與研發', '生物科技藥品', '碳水化合物(醣類)', '配糖體(苷類)', '鞣質(鞣酸)', '生物鹼', '苯丙烷類', '萜類化合物', '揮發油', '脂質', '類固醇', '樹脂', '中藥學'],
+        // Add other subjects' chapters here if they have them
+        '生物藥劑': [], '藥物分析': [], '藥事行政法規': [], '藥物治療': [], '藥劑學': [],
+    };
 
     // Super-gatekeeper: Check for initialization errors first.
     if (window.firebaseInitializationError) {
@@ -118,34 +109,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderUploaderTool(user) {
-        const availableYears = ['2025', '2024', '2023', '2022', '2021'];
-        const availableSubjects = ['藥理藥化', '生物藥劑', '藥物分析', '藥事行政法規', '藥物治療', '藥劑學', '生藥學'];
-        
         const jsonFormatExample = JSON.stringify([
-            {
-                "content": "這是範例問題一的題目內容。",
-                "options": [
-                    "選項 A",
-                    "選項 B",
-                    "選項 C",
-                    "選項 D"
-                ],
-                "answer": 2,
-                "explanation": "這是選填的詳解說明。"
-            },
-            {
-                "content": "這是範例問題二，沒有詳解。",
-                "options": [
-                    "選項 1",
-                    "選項 2",
-                    "選項 3",
-                    "選項 4"
-                ],
-                "answer": 0,
-                "explanation": ""
-            }
+            { "content": "這是範例問題一的題目內容。", "options": ["選項 A","選項 B","選項 C","選項 D"], "answer": 2, "explanation": "這是選填的詳解說明。" },
+            { "content": "這是範例問題二，沒有詳解。", "options": ["選項 1","選項 2","選項 3","選項 4"], "answer": 0, "explanation": "" }
         ], null, 2);
-
 
         uploaderContainer.innerHTML = `
             <header class="admin-header">
@@ -159,20 +126,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="instructions-box">
                 <h4>上傳步驟</h4>
                 <ol style="padding-left: 20px; margin-bottom: 1rem;">
-                    <li><strong>步驟一：</strong>選擇目標年份、科目與考試類型。</li>
+                    <li><strong>步驟一：</strong>選擇目標專區、年份、科目與考試類型/章節。</li>
                     <li><strong>步驟二：</strong>在下方的文字框中，依照預設的 JSON 範本格式貼上您的題目陣列。</li>
                     <li><strong>步驟三：</strong>點擊「驗證 JSON」按鈕，系統將檢查格式與內容是否正確。</li>
                     <li><strong>步驟四：</strong>確認無誤後，「上傳」按鈕將會啟用，點擊即可完成上傳。</li>
                 </ol>
-                <h4>JSON 格式說明</h4>
-                <p>
-                    - 請提供一個 JSON <strong>陣列</strong> (以 <code>[ ]</code> 包圍)。<br>
-                    - 陣列中的每個 <strong>物件</strong> (以 <code>{ }</code> 包圍) 代表一筆題目。<br>
-                    - <code>content</code> (string): 題目內容 (必填)。<br>
-                    - <code>options</code> (array): 一個剛好包含 4 個選項字串的陣列 (必填)。<br>
-                    - <code>answer</code> (number): 正確答案的索引值 (0-3，分別對應選項1-4) (必填)。<br>
-                    - <code>explanation</code> (string): 詳解 (選填，若無請留空字串 <code>""</code>)。
-                </p>
             </div>
 
             <div id="status-message" class="status-message" style="display:none;"></div>
@@ -180,22 +138,29 @@ document.addEventListener('DOMContentLoaded', () => {
             <section class="glass-card" style="margin-bottom: 2rem;">
                 <h3>步驟一：選擇題目分類</h3>
                 <div class="question-form-grid" id="config-selector">
-                    <div class="form-group">
+                     <div class="form-group">
+                        <label for="uploader-area">專區</label>
+                        <select id="uploader-area" class="glass-select" required>
+                            <option value="" disabled selected>-- 選擇專區 --</option>
+                            ${examAreas.map(a => `<option value="${a}">${a}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group" id="uploader-group-year" style="display:none;">
                         <label for="uploader-year">年份</label>
                         <select id="uploader-year" class="glass-select">
                             <option value="" disabled selected>-- 選擇年份 --</option>
                             ${availableYears.map(y => `<option value="${y}">${y}</option>`).join('')}
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="uploader-group-subject" style="display:none;">
                         <label for="uploader-subject">科目</label>
                         <select id="uploader-subject" class="glass-select">
                             <option value="" disabled selected>-- 選擇科目 --</option>
                             ${availableSubjects.map(s => `<option value="${s}">${s}</option>`).join('')}
                         </select>
                     </div>
-                     <div class="form-group">
-                        <label for="uploader-exam-type">考試類型</label>
+                     <div class="form-group" id="uploader-group-exam-type" style="display:none;">
+                        <label for="uploader-exam-type">考試類型/章節</label>
                         <select id="uploader-exam-type" class="glass-select">
                             <option value="" disabled selected>-- 先選擇科目 --</option>
                         </select>
@@ -257,41 +222,77 @@ document.addEventListener('DOMContentLoaded', () => {
         passwordInput.addEventListener('keypress', (e) => e.key === 'Enter' && performLogin());
     }
 
-    function updateUploaderExamTypes() {
+    function updateUploaderFields() {
+        const area = document.getElementById('uploader-area').value;
         const subject = document.getElementById('uploader-subject').value;
+
+        const yearGroup = document.getElementById('uploader-group-year');
+        const subjectGroup = document.getElementById('uploader-group-subject');
+        const examTypeGroup = document.getElementById('uploader-group-exam-type');
         const examTypeSelect = document.getElementById('uploader-exam-type');
-        if (!examTypeSelect) return;
-    
-        let examTypes;
-        if (subject === '生藥學') {
-            examTypes = allExamTypesForPharmacognosy;
-        } else if (subject === '藥理藥化') {
-            examTypes = allExamTypesForPharmacology;
-        } else {
-            examTypes = commonExamTypes;
+        
+        // Reset and hide all conditional fields first
+        yearGroup.style.display = 'none';
+        subjectGroup.style.display = 'none';
+        examTypeGroup.style.display = 'none';
+        
+        let examTypes = [];
+
+        if (!area) return;
+
+        switch (area) {
+            case '國考區':
+                yearGroup.style.display = 'block';
+                subjectGroup.style.display = 'block';
+                examTypeGroup.style.display = 'block';
+                examTypes = nationalExamTypes;
+                break;
+            case '各科練習題':
+                subjectGroup.style.display = 'block';
+                examTypeGroup.style.display = 'block';
+                examTypes = practiceChapters[subject] || [];
+                if (!subject) examTypes = []; // Don't show chapters if subject isn't selected
+                break;
+            case '小考練習區':
+                subjectGroup.style.display = 'block';
+                break;
         }
-    
-        let optionsHtml = `<option value="" disabled selected>-- 選擇考試類型 --</option>`;
+        
+        let optionsHtml = `<option value="" disabled selected>-- 選擇類型/章節 --</option>`;
         optionsHtml += examTypes.map(t => `<option value="${t}">${t}</option>`).join('');
-    
         examTypeSelect.innerHTML = optionsHtml;
-        examTypeSelect.value = ''; 
+
         checkConfigAndToggleDataSection();
     }
 
     function checkConfigAndToggleDataSection() {
+        const area = document.getElementById('uploader-area').value;
         const year = document.getElementById('uploader-year').value;
         const subject = document.getElementById('uploader-subject').value;
         const examType = document.getElementById('uploader-exam-type').value;
         const dataSection = document.getElementById('data-input-section');
         
-        if (year && subject && examType) {
-            selectedConfig = { year, subject, examType };
+        let isConfigReady = false;
+        switch(area) {
+            case '國考區':
+                if (year && subject && examType) isConfigReady = true;
+                break;
+            case '各科練習題':
+                 if (subject && examType) isConfigReady = true;
+                break;
+            case '小考練習區':
+                if (subject) isConfigReady = true;
+                break;
+        }
+
+        if (isConfigReady) {
+            selectedConfig = { area, year: year || null, subject, examType: area === '小考練習區' ? quizExamType : examType };
             if (dataSection.style.display === 'none') {
                 dataSection.style.display = 'block';
                 dataSection.classList.add('fade-in');
             }
         } else {
+            selectedConfig = {};
             dataSection.style.display = 'none';
         }
     }
@@ -299,10 +300,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function attachUploaderListeners() {
         document.getElementById('logout-btn').addEventListener('click', () => auth.signOut());
         
-        const configSelector = document.getElementById('config-selector');
-        configSelector.addEventListener('change', checkConfigAndToggleDataSection);
+        document.getElementById('uploader-area')?.addEventListener('change', updateUploaderFields);
+        document.getElementById('uploader-subject')?.addEventListener('change', updateUploaderFields);
 
-        document.getElementById('uploader-subject')?.addEventListener('change', updateUploaderExamTypes);
+        // These also trigger a check
+        document.getElementById('uploader-year')?.addEventListener('change', checkConfigAndToggleDataSection);
+        document.getElementById('uploader-exam-type')?.addEventListener('change', checkConfigAndToggleDataSection);
 
         document.getElementById('validate-btn')?.addEventListener('click', handleValidateJson);
         document.getElementById('upload-btn')?.addEventListener('click', handleUpload);
@@ -370,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (!confirm(`確定要上傳 ${validatedQuestions.length} 筆新題目到資料庫嗎？\n\n年份: ${selectedConfig.year}\n科目: ${selectedConfig.subject}\n類型: ${selectedConfig.examType}`)) {
+        if (!confirm(`確定要上傳 ${validatedQuestions.length} 筆新題目到資料庫嗎？\n\n專區: ${selectedConfig.area}\n${selectedConfig.year ? `年份: ${selectedConfig.year}\n` : ''}科目: ${selectedConfig.subject}\n類型: ${selectedConfig.examType}`)) {
             return;
         }
         
@@ -385,7 +388,10 @@ document.addEventListener('DOMContentLoaded', () => {
             validatedQuestions.forEach(question => {
                 const docRef = questionsRef.doc();
                  const finalQuestion = {
-                    ...selectedConfig, // year, subject, examType
+                    area: selectedConfig.area,
+                    year: selectedConfig.year, // will be null if not applicable
+                    subject: selectedConfig.subject,
+                    examType: selectedConfig.examType,
                     content: question.content,
                     options: question.options,
                     answer: question.answer,

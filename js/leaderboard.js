@@ -211,10 +211,17 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderHistoryResults(attempts) {
         let html = attempts.map(attempt => {
             const attemptDate = attempt.date ? new Date(attempt.date.seconds * 1000).toLocaleString('zh-TW') : 'N/A';
+            let title = `${attempt.area} - ${attempt.subject}`;
+            if(attempt.area === '國考區') {
+                title = `${attempt.year} ${attempt.subject} (${attempt.examType})`
+            } else {
+                 title = `${attempt.area} - ${attempt.subject} (${attempt.examType})`
+            }
+
             return `
                 <div class="history-item" data-attempt-id="${attempt.id}">
                     <div class="history-item-info">
-                        <h4>${attempt.year} ${attempt.leaderboardCategory} (${attempt.examType})</h4>
+                        <h4>${title}</h4>
                         <p>考試日期：${attemptDate}</p>
                     </div>
                     <div class="history-item-score">${attempt.score}</div>
