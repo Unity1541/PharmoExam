@@ -860,24 +860,34 @@ select {
     margin-right: var(--spacing-3);
     position: relative;
     flex-shrink: 0;
+    transition: border-color 0.2s;
+}
+
+/* Define the pseudo-element's base style and transition here for smooth in and out animation */
+.option-radio::after {
+    content: "";
+    position: absolute;
+    width: 0.75rem;
+    height: 0.75rem;
+    background-color: var(--primary-color);
+    border-radius: var(--border-radius-full);
+    top: 50%;
+    left: 50%;
+    /* Start scaled down (invisible) */
+    transform: translate(-50%, -50%) scale(0); 
+    /* The transition property should be on the base pseudo-element */
+    transition: transform 0.2s ease-in-out;
 }
 
 .option-item.selected .option-radio {
     border-color: var(--primary-color);
-    background-color: var(--primary-color);
 }
 
+/* When selected, just change the transform to scale it up */
 .option-item.selected .option-radio::after {
-    content: "";
-    position: absolute;
-    width: 0.5rem;
-    height: 0.5rem;
-    background-color: white;
-    border-radius: var(--border-radius-full);
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(1);
 }
+
 
 /* 結果頁面 */
 .result-container {

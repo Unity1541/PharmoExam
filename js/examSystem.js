@@ -316,9 +316,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function startTimer() {
         clearInterval(state.timer);
         const timer = setInterval(() => {
-            setState({ timeLeft: state.timeLeft - 1 });
+            state.timeLeft -= 1; // Directly mutate state to avoid re-render
             const timeDisplay = document.getElementById('time-display');
-            if (timeDisplay) timeDisplay.textContent = formatTime(state.timeLeft);
+            if (timeDisplay) {
+                timeDisplay.textContent = formatTime(state.timeLeft);
+            }
             if (state.timeLeft <= 0) {
                 clearInterval(state.timer);
                 alert('時間到！將自動提交答案。');
