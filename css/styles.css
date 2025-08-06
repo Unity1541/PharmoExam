@@ -458,6 +458,7 @@ textarea:focus {
 .leaderboard-card:hover {
     transform: translateY(-5px);
     box-shadow: var(--shadow-md);
+    background-color: rgba(238, 242, 255, 0.9);
 }
 
 .leaderboard-card::before {
@@ -608,6 +609,73 @@ textarea:focus {
     margin-top: var(--spacing-8);
 }
 
+/* Chapter List for Practice Area */
+.chapter-list-container {
+    max-width: 700px;
+    margin: var(--spacing-8) auto 0 auto;
+}
+
+.chapter-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    border-radius: var(--border-radius);
+    background-color: var(--card-bg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    border: 1px solid rgba(203, 213, 225, 0.3);
+}
+
+.chapter-item {
+    padding: var(--spacing-4) var(--spacing-6);
+    border-bottom: 1px solid rgba(203, 213, 225, 0.3);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chapter-item:last-child {
+    border-bottom: none;
+}
+
+.chapter-item:not(.disabled):hover {
+    background-color: rgba(99, 102, 241, 0.05);
+    color: var(--primary-color);
+    border-left: 4px solid var(--primary-color);
+    padding-left: calc(var(--spacing-6) - 4px);
+}
+
+.chapter-item:not(.disabled)::after {
+    content: '→';
+    font-size: 1.2rem;
+    color: var(--muted-text);
+    transition: transform 0.2s, color 0.2s;
+}
+
+.chapter-item:not(.disabled):hover::after {
+    transform: translateX(5px);
+    color: var(--primary-color);
+}
+
+.chapter-item.disabled {
+    color: var(--muted-text);
+    background-color: rgba(241, 245, 249, 0.9);
+    cursor: not-allowed;
+}
+
+.chapter-item.disabled::after {
+    content: '無題目';
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--secondary-color);
+    background-color: rgba(226, 232, 240, 0.8);
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--border-radius-sm);
+}
+
 .selection-card {
     background-color: var(--card-bg);
     border-radius: var(--border-radius);
@@ -624,6 +692,7 @@ textarea:focus {
     transform: translateY(-5px);
     box-shadow: var(--shadow-md);
     border-color: var(--primary-color);
+    background-color: rgba(238, 242, 255, 0.9);
 }
 
 .selection-card.disabled {
@@ -636,6 +705,7 @@ textarea:focus {
     transform: none;
     box-shadow: none;
     border-color: rgba(203, 213, 225, 0.5);
+    background-color: rgba(241, 245, 249, 0.8);
 }
 
 .selection-card h3 {
@@ -772,12 +842,14 @@ select {
 }
 
 .option-item:hover {
-    background-color: rgba(99, 102, 241, 0.05);
+    background-color: rgba(99, 102, 241, 0.08);
+    transform: translateX(5px);
 }
 
 .option-item.selected {
-    background-color: rgba(99, 102, 241, 0.1);
+    background-color: rgba(99, 102, 241, 0.15);
     border-color: var(--primary-color);
+    transform: translateX(5px);
 }
 
 .option-radio {

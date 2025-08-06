@@ -226,24 +226,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = stepDivs.SELECTION_2;
         const chapters = practiceChapters[state.selectedSubject] || [];
         let html = `
-            <h2 class="step-title">選擇章節</h2>
-            <p class="step-description">您選擇了【${state.selectedSubject}】</p>
-            <div class="selection-grid">
+            <h2 class="step-title">選擇練習章節</h2>
+            <p class="step-description">您選擇了【${state.selectedSubject}】，請從下方列表中選擇一個章節開始練習。</p>
+            <div class="chapter-list-container">
+                <ul class="chapter-list">
         `;
-        chapters.forEach(chapter => {
-             const hasQuestions = allQuestions.some(q => q.area === '各科練習題' && q.subject === state.selectedSubject && q.examType === chapter);
-            html += `
-                 <div class="selection-card ${hasQuestions ? '' : 'disabled'}" data-exam-type="${chapter}">
-                    <h3>${chapter}</h3>
-                     <p>${hasQuestions ? `開始章節練習` : '此章節無相關題目'}</p>
-                </div>
-            `;
-        });
-        html += `</div>`;
+
+        if (chapters.length === 0) {
+            html += `<li class="chapter-item disabled">此科目尚無章節分類</li>`;
+        } else {
+            chapters.forEach(chapter => {
+                const hasQuestions = allQuestions.some(q => q.area === '各科練習題' && q.subject === state.selectedSubject && q.examType === chapter);
+                html += `
+                    <li class="chapter-item ${hasQuestions ? '' : 'disabled'}" data-exam-type="${chapter}">
+                        <span>${chapter}</span>
+                    </li>
+                `;
+            });
+        }
+        
+        html += `
+                </ul>
+            </div>
+        `;
         container.innerHTML = html;
-        container.querySelectorAll('.selection-card:not(.disabled)').forEach(card => {
-            card.addEventListener('click', () => {
-                setState({ selectedExamType: card.dataset.examType });
+        container.querySelectorAll('.chapter-item:not(.disabled)').forEach(item => {
+            item.addEventListener('click', () => {
+                setState({ selectedExamType: item.dataset.examType });
                 startExam();
             });
         });
