@@ -1,5 +1,6 @@
 
 
+
 document.addEventListener('DOMContentLoaded', () => {
     const adminContainer = document.getElementById('admin-container');
 
@@ -165,11 +166,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function attachGeneralListeners() {
-        document.getElementById('modal-close-btn')?.addEventListener('click', () => setState({ viewingAttempt: null }));
+        document.getElementById('modal-close-btn')?.addEventListener('click', () => {
+            const reviewModal = document.getElementById('review-modal');
+            if (reviewModal) reviewModal.style.display = 'none';
+            setState({ viewingAttempt: null })
+        });
         const reviewModal = document.getElementById('review-modal');
         if (reviewModal) {
             reviewModal.addEventListener('click', (e) => {
                 if (e.target === reviewModal) {
+                    reviewModal.style.display = 'none';
                     setState({ viewingAttempt: null });
                 }
             });
@@ -178,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderLoginForm() {
         adminContainer.innerHTML = `
-            <div class="login-container fade-in">
+            <div class="login-container card fade-in">
                 <div class="login-header">
                     <svg class="login-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <rect width="20" height="16" x="2" y="4" rx="2" stroke="currentColor" fill="none" stroke-width="2"/>
@@ -216,12 +222,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const editingQuestion = editingQuestionId ? state.questions.find(q => q.id === editingQuestionId) : null;
         const hasSelection = selectedQuestionIds.size > 0;
         
+        let modalContent = '';
+        if (viewingAttempt) {
+            modalContent = renderAnalysisReport(viewingAttempt);
+        }
+
         adminContainer.innerHTML = `
             <div class="admin-panel fade-in">
                 <header class="admin-header">
                     <h2>試題管理</h2>
                     <div>
-                        <span style="color: var(--secondary-color); margin-right: 1rem;">${user.email}</span>
+                        <span style="color: var(--text-secondary); margin-right: 1rem;">${user.email}</span>
                         <button id="logout-btn" class="btn btn-secondary">登出</button>
                     </div>
                 </header>
@@ -231,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         ${showForm && !editingQuestionId ? '取消新增' : '新增題目'}
                     </button>
-                     <button id="delete-selected-btn" class="btn btn-secondary" style="background-color: var(--danger-color);" ${!hasSelection ? 'disabled' : ''}>
+                     <button id="delete-selected-btn" class="btn btn-secondary" style="background-color: var(--danger-color); color: #fff;" ${!hasSelection ? 'disabled' : ''}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                         刪除選取 (${selectedQuestionIds.size})
                     </button>
@@ -254,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </select>
                 </section>
 
-                <section id="question-form-container" class="glass-card" style="display: ${showForm ? 'block' : 'none'};">
+                <section id="question-form-container" class="card" style="display: ${showForm ? 'block' : 'none'};">
                     <form id="question-form">
                         <h3>${editingQuestionId ? '編輯題目' : '新增題目'}</h3>
                         <div class="question-form-grid">
@@ -320,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </main>
                 
                  <!-- 作答紀錄管理 -->
-                <section class="glass-card" style="margin-top: 2rem;">
+                <section class="card" style="margin-top: 2rem;">
                     <h3>作答紀錄管理</h3>
                     <p class="step-description" style="margin-bottom: 1rem;">此處列出所有使用者的考試紀錄。您可以查看詳細作答情況或刪除紀錄。</p>
                     <div id="attempt-list-container">
@@ -328,26 +339,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </section>
 
-                <section class="glass-card" style="margin-top: 2rem;">
+                <section class="card" style="margin-top: 2rem;">
                     <h3>排名管理</h3>
                     <p class="step-description" style="margin-bottom: 1rem;">此操作將會清除所有科目的排行榜資料，此操作無法復原。</p>
-                    <button id="clear-leaderboard-btn" class="btn btn-secondary" style="background-color: var(--danger-color);">
+                    <button id="clear-leaderboard-btn" class="btn btn-secondary" style="background-color: var(--danger-color); color: #fff;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                         清除所有排名
                     </button>
                 </section>
             </div>
             
-            <!-- Modal for viewing attempt review -->
             <div id="review-modal" class="modal-overlay" style="display: ${viewingAttempt ? 'flex' : 'none'};">
-                <div class="modal-content glass-card">
+                <div class="modal-content">
                     <button id="modal-close-btn" class="modal-close">&times;</button>
-                    <div id="modal-body">
-                        ${viewingAttempt ? renderAnswerReview(viewingAttempt.questions, {}) : ''}
-                    </div>
+                    <div id="modal-body">${modalContent}</div>
                 </div>
             </div>
         `;
+
+        if (viewingAttempt) {
+            animateProgressCircle(viewingAttempt.score);
+        }
+
         attachAdminListeners();
         // Manually trigger form update if editing
         if (editingQuestionId) {
@@ -369,13 +382,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const areAllFilteredSelected = filteredQuestions.length > 0 && filteredQuestions.every(q => selectedQuestionIds.has(q.id));
 
         return `
-            <div class="question-list-actions" style="margin-bottom: 1rem; padding: 0.5rem 1rem; display: flex; align-items: center; background-color: rgba(238, 242, 255, 0.5); border-radius: var(--border-radius);">
+            <div class="question-list-actions" style="margin-bottom: 1rem; padding: 0.5rem 1rem; display: flex; align-items: center; background-color: var(--bg-color); border: 1px solid var(--card-border); border-radius: var(--border-radius);">
                 <input type="checkbox" id="select-all-checkbox" style="margin-right: 0.75rem; transform: scale(1.2);" ${areAllFilteredSelected ? 'checked' : ''}>
-                <label for="select-all-checkbox" style="font-weight: 500; color: var(--secondary-color);">全選/取消全選目前顯示的 ${filteredQuestions.length} 個題目</label>
+                <label for="select-all-checkbox" style="font-weight: 500; color: var(--text-secondary);">全選/取消全選目前顯示的 ${filteredQuestions.length} 個題目</label>
             </div>
             <div class="question-list">
                 ${filteredQuestions.map(q => `
-                <div class="question-item" id="q-item-${q.id}" style="${selectedQuestionIds.has(q.id) ? 'background-color: rgba(99, 102, 241, 0.05); border-left-color: #a5b4fc;' : ''}">
+                <div class="question-item" id="q-item-${q.id}" style="${selectedQuestionIds.has(q.id) ? 'background-color: #EFF6FF; border-left-color: #93C5FD;' : ''}">
                     <div class="question-item-header">
                         <input type="checkbox" class="question-checkbox" data-id="${q.id}" ${selectedQuestionIds.has(q.id) ? 'checked' : ''} style="margin-right: 1.25rem; flex-shrink: 0; transform: scale(1.2); cursor: pointer;">
                         <div style="flex-grow: 1;">
@@ -401,7 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </button>
                         </div>
                     </div>
-                    <div class="question-item-details ${expandedQuestionId === q.id ? 'expanded' : ''}">
+                    <div class="question-item-details ${expandedQuestionId === q.id ? 'expanded' : ''}" style="display: ${expandedQuestionId === q.id ? 'block' : 'none'};">
                         <ol style="list-style-type: upper-alpha; padding-left: 20px;">
                             ${q.options.map((opt, i) => `
                                 <li class="${q.answer === i ? 'correct' : ''}">
@@ -409,7 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </li>
                             `).join('')}
                         </ol>
-                        ${q.explanation ? `<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(203, 213, 225, 0.3);"><strong>詳解：</strong><br>${q.explanation.replace(/\n/g, '<br>')}</div>` : ''}
+                        ${q.explanation ? `<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--card-border);"><strong>詳解：</strong><br>${q.explanation.replace(/\n/g, '<br>')}</div>` : ''}
                     </div>
                 </div>
                 `).join('')}
@@ -607,7 +620,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function handleExpand(e) {
         const id = e.currentTarget.dataset.id;
-        setState({ expandedQuestionId: state.expandedQuestionId === id ? null : id });
+        const details = document.querySelector(`#q-item-${id} .question-item-details`);
+        if (details) {
+            if (state.expandedQuestionId === id) {
+                details.style.display = 'none';
+                setState({ expandedQuestionId: null });
+            } else {
+                // Collapse previously opened one if any
+                const oldDetails = state.expandedQuestionId ? document.querySelector(`#q-item-${state.expandedQuestionId} .question-item-details`) : null;
+                if(oldDetails) oldDetails.style.display = 'none';
+
+                details.style.display = 'block';
+                setState({ expandedQuestionId: id });
+            }
+        }
     }
     
     function handleQuestionSelectionChange(e) {
@@ -755,10 +781,105 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function renderAnswerReview(questions, userAnswers) { // userAnswers is not needed here
+    function formatTime(seconds) {
+        if (seconds === undefined || seconds === null || isNaN(seconds)) return 'N/A';
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function animateProgressCircle(score) {
+        const circle = document.querySelector('.progress-ring-track-green');
+        if (!circle) return;
+    
+        const radius = circle.r.baseVal.value;
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (score / 100) * circumference;
+    
+        circle.style.strokeDasharray = `${circumference} ${circumference}`;
+        
+        setTimeout(() => {
+            circle.style.transition = 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
+            circle.style.strokeDashoffset = offset;
+        }, 100);
+    }
+
+    function renderAnalysisReport(attempt) {
+        const { score, questions, area, year, subject, examType, completionTime } = attempt;
+
+        const totalQuestions = questions.length;
+        const correctCount = questions.filter(q => q.userAnswer === q.answer).length;
+        const completionTimeFormatted = formatTime(completionTime);
+        let title = `${area} - ${subject} - ${examType}`;
+        if (area === '國考區') {
+            title = `${year} ${subject} - ${examType}`;
+        }
+    
+        const reportHTML = `
+        <div class="analysis-container">
+            <div class="analysis-header">
+                <div class="analysis-icon-container">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="24" height="24" rx="6"/>
+                    </svg>
+                </div>
+                <h2>測驗結果分析</h2>
+                <p>深入分析您的答題表現，發現學習重點與改進方向</p>
+            </div>
+            <div class="analysis-main-grid">
+                <div class="analysis-score-card card">
+                    <div class="progress-circle" data-progress="${score}">
+                        <svg class="progress-ring" width="200" height="200" viewBox="0 0 120 120">
+                            <circle class="progress-ring-bg" r="54" cx="60" cy="60"/>
+                            <circle class="progress-ring-track-red" r="54" cx="60" cy="60"/>
+                            <circle class="progress-ring-track-green" r="54" cx="60" cy="60"/>
+                        </svg>
+                        <div class="progress-text">${score}%</div>
+                    </div>
+                    <div class="analysis-exam-title">「${title}」測驗結果</div>
+                    <div class="analysis-stats">
+                        <div class="stat-item">
+                            <span class="stat-value">${correctCount}</span>
+                            <span class="stat-label">答對題數</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${totalQuestions}</span>
+                            <span class="stat-label">總題數</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${completionTimeFormatted}</span>
+                            <span class="stat-label">完成時間</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">+${score}</span>
+                            <span class="stat-label">獲得分數</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="analysis-achievements-card card">
+                    <h3><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px; color: #f59e0b;"><path d="M12 17.8 5.8 21 7 14.1 2 9.3l7-1L12 2l3 6.3 7 1-5 4.8 1.2 6.9-6.2-3.2Z"></path></svg> 我的成就</h3>
+                    <div class="achievement-item">
+                        <div class="achievement-icon">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12.68,6.34C11.9,4.9,10.29,4.5,9.22,5.29S7.53,7.21,8.32,8.28c.48.65,1.18,1.06,1.93,1.16v1.94c-1.33.2-2.33,1.33-2.33,2.62,0,1.47,1.19,2.67,2.67,2.67s2.67-1.19,2.67-2.67c0-1.29-1-2.42-2.33-2.62V9.32c1.73-.53,2.58-2.31,2.05-3.98Z M17,2H7C4.79,2,3,3.79,3,6v10c0,1.04.42,2,1.17,2.65l1.45-1.24C5.25,17.06,5,16.55,5,16V8c0-1.3.84-2.4,2-2.82V16c0,2.21,1.79,4,4,4s4-1.79,4-4V5.18c1.16.41,2,1.51,2,2.82v8c0,.55-.25,1.06-.62,1.41l1.45,1.24C19.58,18,20,17.04,20,16V6c0-2.21-1.79-4-4-4Z"></path></svg>
+                        </div>
+                        <div class="achievement-text">
+                            <h4>初試啼聲</h4>
+                            <p>完成您的第一次測驗！</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+    
+        const reviewHTML = renderAnswerReview(questions);
+        return reportHTML + reviewHTML;
+    }
+
+    function renderAnswerReview(questions) {
         let reviewHtml = `
-            <div class="answer-review-section">
-                <h3 class="answer-review-title">作答回顧</h3>
+            <div class="analysis-details-section">
+                <h3 class="answer-review-title">逐題詳細分析</h3>
         `;
         
         questions.forEach((q, index) => {
@@ -769,7 +890,7 @@ document.addEventListener('DOMContentLoaded', () => {
             reviewHtml += `
                 <div class="review-question-item ${itemClass}">
                     <div class="review-question-content">
-                        <div class="review-question-number">${index + 1}</div>
+                        <div class="question-number review-question-number">${index + 1}</div>
                         <div class="question-text">${q.content}</div>
                     </div>
                     <div class="review-options-list">
@@ -781,11 +902,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             if (isCorrectAnswer) {
                                 optionClass = 'correct-answer';
-                                icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="color: var(--success-color);"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>`;
+                                icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>`;
                             }
                             if (isUserAnswer && !isCorrectAnswer) {
                                 optionClass = 'user-selected';
-                                icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="color: var(--danger-color);"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"></path></svg>`;
+                                icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"></path></svg>`;
                             }
 
                             return `

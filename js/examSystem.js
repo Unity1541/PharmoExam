@@ -1,19 +1,21 @@
 
 
+
+
 document.addEventListener('DOMContentLoaded', () => {
     const examContainer = document.getElementById('exam-container');
     // Super-gatekeeper: Check for initialization errors first.
     if (window.firebaseInitializationError) {
         examContainer.innerHTML = `
-            <div class="glass-card fade-in" style="max-width: 650px; margin: 2rem auto;">
+            <div class="card fade-in" style="max-width: 650px; margin: 2rem auto;">
                  <div class="login-header">
                     <svg class="login-icon" style="color: var(--danger-color);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
                         <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>
                     </svg>
-                    <h2 style="background: var(--danger-color); -webkit-background-clip: text;">Firebase 設定錯誤</h2>
+                    <h2 style="color: var(--danger-color);">Firebase 設定錯誤</h2>
                     <p>您的 Firebase 設定檔 (<code>js/firebase.js</code>) 存在格式錯誤，導致應用程式無法啟動。請檢查您的設定是否從 Firebase 控制台完整複製。</p>
                 </div>
-                <div class="demo-info" style="text-align: left; background-color: rgba(239, 68, 68, 0.1); color: #c05621;">
+                <div class="demo-info" style="text-align: left; background-color: #FEF2F2; color: #991B1B;">
                     <p><strong>錯誤詳情：</strong></p>
                     <pre style="white-space: pre-wrap; word-wrap: break-word;">${window.firebaseInitializationError.message}</pre>
                 </div>
@@ -52,13 +54,14 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedYear: null,
         selectedSubject: null,
         selectedExamType: null, // Can be chapter or exam time
-        timeLimit: 30,
-        timeLeft: 1800,
+        timeLimit: 60,
+        timeLeft: 3600,
         currentQuestions: [],
         answers: {},
         score: 0,
         timer: null,
         latestExamId: null,
+        startTime: 0,
     };
 
     function setState(newState) {
@@ -127,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         for (const area in examAreas) {
             html += `
-                <div class="selection-card" data-area="${area}">
+                <div class="selection-card no-hover" data-area="${area}">
                     <h3>${area}</h3>
                     <p>${examAreas[area]}</p>
                 </div>
@@ -174,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         availableYears.forEach(year => {
             const hasQuestions = allQuestions.some(q => q.area === '國考區' && q.year === year);
             html += `
-                <div class="selection-card ${hasQuestions ? '' : 'disabled'}" data-year="${year}">
+                <div class="selection-card no-hover ${hasQuestions ? '' : 'disabled'}" data-year="${year}">
                     <h3>${year}</h3>
                     <p>${hasQuestions ? `選擇 ${year} 年` : '該年度無相關題目'}</p>
                 </div>
@@ -198,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         subjects.forEach(subject => {
             const hasQuestions = allQuestions.some(q => q.area === state.selectedArea && (state.selectedYear ? q.year === state.selectedYear : true) && q.subject === subject);
             html += `
-                <div class="selection-card ${hasQuestions ? '' : 'disabled'}" data-subject="${subject}">
+                <div class="selection-card no-hover ${hasQuestions ? '' : 'disabled'}" data-subject="${subject}">
                     <h3>${subject}</h3>
                      <p>${hasQuestions ? `選擇 ${subject}` : '此科目無相關題目'}</p>
                 </div>
@@ -268,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nationalExamTypes.forEach(type => {
             const hasQuestions = allQuestions.some(q => q.area === '國考區' && q.year === state.selectedYear && q.subject === state.selectedSubject && q.examType === type);
             html += `
-                <div class="selection-card ${hasQuestions ? '' : 'disabled'}" data-exam-type="${type}">
+                <div class="selection-card no-hover ${hasQuestions ? '' : 'disabled'}" data-exam-type="${type}">
                     <h3>${type}</h3>
                     <p>${hasQuestions ? `開始測驗` : '此場次無相關題目'}</p>
                 </div>
@@ -287,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Exam Logic
     function startExam() {
         const { selectedArea, selectedYear, selectedSubject, selectedExamType } = state;
-        currentQuestions = allQuestions.filter(q => 
+        const currentQuestions = allQuestions.filter(q => 
             q.area === selectedArea &&
             q.subject === selectedSubject && 
             q.examType === selectedExamType &&
@@ -307,6 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
             answers,
             currentQuestions,
             timeLeft: state.timeLimit * 60,
+            startTime: Date.now(),
             latestExamId: `exam_${Date.now()}`,
             view: 'EXAM',
         });
@@ -338,7 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let html = `
-            <div class="exam-header glass-card">
+            <div class="exam-header card">
                 <div>
                     <h2>考試進行中</h2>
                     <p>${title} | 共 ${currentQuestions.length} 題</p>
@@ -406,6 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function formatTime(seconds) {
+        if (seconds === undefined || seconds === null || isNaN(seconds)) return 'N/A';
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
@@ -455,6 +460,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
         const leaderboardCategory = state.selectedArea === '小考練習區' ? '小考練習區' : state.selectedSubject;
         
+        const completionTimeInSeconds = Math.floor((Date.now() - state.startTime) / 1000);
+
         const attemptData = {
             examId: state.latestExamId,
             nickname: state.nickname,
@@ -467,6 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
             date: firebase.firestore.FieldValue.serverTimestamp(),
             questions: detailedQuestions,
             leaderboardCategory: leaderboardCategory,
+            completionTime: completionTimeInSeconds
         };
         await examAttemptsCollection.add(attemptData);
     }
@@ -499,118 +507,135 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function renderResultStep() {
-        stepDivs.RESULT.innerHTML = `<div class="loading-spinner">正在計算您的成績與排名...</div>`;
+    function animateProgressCircle(score) {
+        const circle = document.querySelector('.progress-ring-track-green');
+        if (!circle) return;
+    
+        const radius = circle.r.baseVal.value;
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (score / 100) * circumference;
+    
+        circle.style.strokeDasharray = `${circumference} ${circumference}`;
         
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate calculation
-        
-        const { score, selectedSubject, selectedArea, selectedYear, selectedExamType, nickname, latestExamId } = state;
-        const leaderboardCategory = selectedArea === '小考練習區' ? '小考練習區' : selectedSubject;
-        
-        if (usePreviewMode) {
-            renderResultStepPreview();
-            return;
-        }
-
-        try {
-            const snapshot = await leaderboardCollection.where('subject', '==', leaderboardCategory).get();
-            let subjectLeaderboard = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
-            subjectLeaderboard.sort((a, b) => b.score - a.score || (b.date?.toMillis() || 0) - (a.date?.toMillis() || 0));
-            
-            const userRankData = subjectLeaderboard.find(item => item.examId === latestExamId);
-            const userRank = userRankData ? subjectLeaderboard.indexOf(userRankData) + 1 : "N/A";
-            const topFive = subjectLeaderboard.slice(0, 5);
-
-            let title = `${selectedArea} | ${selectedSubject} (${selectedExamType})`;
-            if (selectedArea === '國考區') {
-                title = `${selectedYear}年 ${selectedSubject} - ${selectedExamType}`;
-            }
-
-            let html = `
-                <div class="result-container glass-card fade-in">
-                     <div class="${score >= 60 ? 'result-icon success' : 'result-icon failure'}">
-                        ${score >= 60 ? 
-                            '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' : 
-                            '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>'}
-                    </div>
-                    <h2 class="result-title">${score >= 60 ? '恭喜通過！' : '再接再厲！'}</h2>
-                    <p>${title} | 考生：${nickname}</p>
-                    
-                    <div class="score-container">
-                        <div class="result-score"><span class="score-value">${score}</span><span class="score-total">/100</span></div>
-                    </div>
-                    
-                    <div class="rank-info"><p>您在 ${leaderboardCategory} 排行榜中排名第 <strong>${userRank}</strong> 名</p></div>
-                    
-                    <h3 class="leaderboard-title">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17.8 5.8 21 7 14.1 2 9.3l7-1L12 2l3 6.3 7 1-5 4.8 1.2 6.9-6.2-3.2Z"></path></svg>
-                        ${leaderboardCategory} 排行榜（前五名）
-                    </h3>
-                    <div class="mini-leaderboard">
-            `;
-            
-            if (topFive.length === 0) {
-                html += `<p class="no-data">暫無排名數據</p>`;
-            } else {
-                topFive.forEach((item, index) => {
-                    html += `<div class="rank-item ${item.examId === latestExamId ? 'current-user' : ''}"><div class="rank-position">${index + 1}</div><div class="rank-nickname">${item.nickname}</div><div class="rank-score">${item.score}</div></div>`;
-                });
-            }
-            
-            html += `
-                    </div>
-                    <div class="button-group" style="margin-top: 2rem;">
-                        <a href="index.html" class="btn btn-secondary">返回首頁</a>
-                        <button id="restart-exam-btn" class="btn btn-primary">再測一次</button>
-                    </div>
-                </div>
-            `;
-            
-            const detailedQuestions = state.currentQuestions.map(q => ({ ...q, userAnswer: state.answers[q.id] }));
-            html += renderAnswerReview(detailedQuestions);
-            stepDivs.RESULT.innerHTML = html;
-            stepDivs.RESULT.querySelector('#restart-exam-btn').addEventListener('click', () => location.reload());
-
-        } catch (error) {
-             console.error("Error rendering results:", error);
-             stepDivs.RESULT.innerHTML = `<div class="glass-card fade-in" style="padding: 2rem;"><p class="no-data">無法載入排名資料，但您的分數是 ${score} 分。</p></div>`;
-        }
+        setTimeout(() => {
+            circle.style.transition = 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
+            circle.style.strokeDashoffset = offset;
+        }, 100);
     }
 
-    function renderResultStepPreview() {
-        const { score, selectedSubject, selectedArea, selectedYear, selectedExamType, nickname } = state;
-        let title = `${selectedArea} | ${selectedSubject} (${selectedExamType})`;
+    async function renderResultStep() {
+        stepDivs.RESULT.innerHTML = `<div class="loading-spinner">正在計算您的成績...</div>`;
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const { score, currentQuestions, selectedArea, selectedYear, selectedSubject, selectedExamType, startTime } = state;
+
+        const totalQuestions = currentQuestions.length;
+        const correctCount = currentQuestions.filter(q => state.answers[q.id] === q.answer).length;
+        const completionTime = Math.floor((Date.now() - startTime) / 1000);
+        const completionTimeFormatted = formatTime(completionTime);
+
+        let title = `${selectedArea} - ${selectedSubject} - ${selectedExamType}`;
         if (selectedArea === '國考區') {
-            title = `${selectedYear}年 ${selectedSubject} - ${selectedExamType}`;
+            title = `${selectedYear} ${selectedSubject} - ${selectedExamType}`;
         }
-        let html = `
-            <div class="result-container glass-card fade-in">
-                <div class="${score >= 60 ? 'result-icon success' : 'result-icon failure'}">${score >= 60 ? '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' : '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>'}</div>
-                <h2 class="result-title">${score >= 60 ? '恭喜通過！' : '再接再厲！'}</h2>
-                <p>${title} | 考生：${nickname}</p>
-                <div class="score-container"><div class="result-score"><span class="score-value">${score}</span><span class="score-total">/100</span></div></div>
-                <div class="rank-info"><p>預覽模式下不計算排名</p></div>
-                <div class="button-group" style="margin-top: 2rem;"><a href="index.html" class="btn btn-secondary">返回首頁</a><button id="restart-exam-btn" class="btn btn-primary">再測一次</button></div>
-            </div>
-        `;
+        
+        let reportHTML = `
+            <div class="analysis-container">
+                <div class="analysis-header">
+                    <div class="analysis-icon-container">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                           <rect width="24" height="24" rx="6"/>
+                        </svg>
+                    </div>
+                    <h2>測驗結果分析</h2>
+                    <p>深入分析您的答題表現，發現學習重點與改進方向</p>
+                </div>
+                <div class="analysis-main-grid">
+                    <div class="analysis-score-card card">
+                        <div class="progress-circle" data-progress="${score}">
+                            <svg class="progress-ring" width="200" height="200" viewBox="0 0 120 120">
+                                <circle class="progress-ring-bg" r="54" cx="60" cy="60"/>
+                                <circle class="progress-ring-track-red" r="54" cx="60" cy="60"/>
+                                <circle class="progress-ring-track-green" r="54" cx="60" cy="60"/>
+                            </svg>
+                            <div class="progress-text">${score}%</div>
+                        </div>
+                        <div class="analysis-exam-title">「${title}」測驗結果</div>
+                        <div class="analysis-stats">
+                            <div class="stat-item">
+                                <span class="stat-value">${correctCount}</span>
+                                <span class="stat-label">答對題數</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value">${totalQuestions}</span>
+                                <span class="stat-label">總題數</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value">${completionTimeFormatted}</span>
+                                <span class="stat-label">完成時間</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value">+${score}</span>
+                                <span class="stat-label">獲得分數</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="analysis-achievements-card card">
+                        <h3><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px; color: #f59e0b;"><path d="M12 17.8 5.8 21 7 14.1 2 9.3l7-1L12 2l3 6.3 7 1-5 4.8 1.2 6.9-6.2-3.2Z"></path></svg> 我的成就</h3>
+                        <div class="achievement-item">
+                            <div class="achievement-icon">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12.68,6.34C11.9,4.9,10.29,4.5,9.22,5.29S7.53,7.21,8.32,8.28c.48.65,1.18,1.06,1.93,1.16v1.94c-1.33.2-2.33,1.33-2.33,2.62,0,1.47,1.19,2.67,2.67,2.67s2.67-1.19,2.67-2.67c0-1.29-1-2.42-2.33-2.62V9.32c1.73-.53,2.58-2.31,2.05-3.98Z M17,2H7C4.79,2,3,3.79,3,6v10c0,1.04.42,2,1.17,2.65l1.45-1.24C5.25,17.06,5,16.55,5,16V8c0-1.3.84-2.4,2-2.82V16c0,2.21,1.79,4,4,4s4-1.79,4-4V5.18c1.16.41,2,1.51,2,2.82v8c0,.55-.25,1.06-.62,1.41l1.45,1.24C19.58,18,20,17.04,20,16V6c0-2.21-1.79-4-4-4Z"></path></svg>
+                            </div>
+                            <div class="achievement-text">
+                                <h4>初試啼聲</h4>
+                                <p>完成您的第一次測驗！</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
         const detailedQuestions = state.currentQuestions.map(q => ({...q, userAnswer: state.answers[q.id]}));
-        html += renderAnswerReview(detailedQuestions);
-        stepDivs.RESULT.innerHTML = html;
+        const reviewHTML = renderAnswerReview(detailedQuestions);
+        
+        stepDivs.RESULT.innerHTML = reportHTML + reviewHTML;
+        
+        // Add action buttons below the report
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'button-group';
+        buttonContainer.style.marginTop = '2rem';
+        buttonContainer.style.justifyContent = 'center';
+        buttonContainer.innerHTML = `
+            <a href="index.html" class="btn btn-secondary">返回首頁</a>
+            <button id="restart-exam-btn" class="btn btn-primary">再測一次</button>
+        `;
+        stepDivs.RESULT.querySelector('.analysis-container').appendChild(buttonContainer);
         stepDivs.RESULT.querySelector('#restart-exam-btn').addEventListener('click', () => location.reload());
+
+        animateProgressCircle(score);
     }
 
     function renderAnswerReview(questions) {
-        let reviewHtml = `<div class="answer-review-section"><h3 class="answer-review-title">作答回顧</h3>`;
+        let reviewHtml = `
+            <div class="analysis-details-section">
+                <h3 class="answer-review-title">逐題詳細分析</h3>`;
         questions.forEach((q, index) => {
             const isCorrect = q.userAnswer === q.answer;
             reviewHtml += `<div class="review-question-item ${isCorrect ? 'correct' : 'incorrect'}">
-                    <div class="review-question-content"><div class="review-question-number">${index + 1}</div><div class="question-text">${q.content}</div></div>
+                    <div class="review-question-content"><div class="question-number review-question-number">${index + 1}</div><div class="question-text">${q.content}</div></div>
                     <div class="review-options-list">
                         ${q.options.map((opt, optIndex) => {
+                            let optionClass = '';
                             let icon = '';
-                            if (optIndex === q.answer) icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="color: var(--success-color);"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>`;
-                            else if (optIndex === q.userAnswer) icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="color: var(--danger-color);"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"></path></svg>`;
-                            return `<div class="review-option ${optIndex === q.answer ? 'correct-answer' : (optIndex === q.userAnswer ? 'user-selected' : '')}">${icon || '<div class="review-option-icon"></div>'}<span>${opt}</span></div>`;
+                            if (optIndex === q.answer) {
+                                optionClass = 'correct-answer';
+                                icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>`;
+                            } else if (optIndex === q.userAnswer) {
+                                optionClass = 'user-selected';
+                                icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"></path></svg>`;
+                            }
+                            return `<div class="review-option ${optionClass}">${icon || '<div class="review-option-icon"></div>'}<span>${opt}</span></div>`;
                         }).join('')}
                     </div>
                     ${q.explanation ? `<div class="explanation-box"><strong>詳解：</strong><p>${q.explanation.replace(/\n/g, '<br>')}</p></div>` : ''}
