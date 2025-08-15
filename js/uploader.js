@@ -118,8 +118,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <header class="admin-header">
                 <h2>試題批次上傳工具</h2>
                 <div>
-                    <span style="color: var(--secondary-color); margin-right: 1rem;">${user.email}</span>
-                    <button id="logout-btn" class="btn btn-secondary">登出</button>
+                    <span style="color: var(--text-secondary); margin-right: 1rem;">${user.email}</span>
+                    <button id="logout-btn" class="btn btn-secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        登出
+                    </button>
                 </div>
             </header>
             
@@ -175,17 +178,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     <textarea id="questions-input" rows="15" placeholder="請在此處貼上您的題目 JSON...">${jsonFormatExample}</textarea>
                 </div>
                 
-                <div class="uploader-grid">
-                    <div>
+                <div class="uploader-steps">
+                    <div class="uploader-step">
                         <h3>步驟三：驗證</h3>
+                        <p class="step-description">檢查您的 JSON 格式是否正確。</p>
                         <div class="form-actions" style="justify-content: flex-start;">
-                            <button id="validate-btn" class="btn btn-secondary">驗證 JSON</button>
+                            <button id="validate-btn" class="btn btn-secondary">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+                                驗證 JSON
+                            </button>
                         </div>
                     </div>
-                     <div>
+                     <div class="uploader-step">
                         <h3>步驟四：上傳</h3>
+                        <p class="step-description">將驗證通過的題目上傳至資料庫。</p>
                          <div class="form-actions" style="justify-content: flex-start;">
-                             <button id="upload-btn" class="btn btn-primary" disabled>上傳至 Firebase</button>
+                             <button id="upload-btn" class="btn btn-primary" disabled>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                上傳至 Firebase
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -379,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const uploadBtn = document.getElementById('upload-btn');
         uploadBtn.disabled = true;
-        uploadBtn.textContent = '上傳中...';
+        uploadBtn.innerHTML = '<div class="loading"></div> 上傳中...';
 
         try {
             const batch = db.batch();
@@ -410,7 +421,10 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Error uploading questions: ", error);
             showStatus(`上傳失敗: ${error.message}`, 'error');
         } finally {
-            uploadBtn.textContent = '上傳至 Firebase';
+             uploadBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                上傳至 Firebase
+            `;
             // Keep it disabled until a new validation happens
         }
     }

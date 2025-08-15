@@ -71,7 +71,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 加載所有排行榜數據
     if (usePreviewMode) {
         showPreviewWarning();
     }
@@ -94,20 +93,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         try {
-            // Use a simpler query and sort on the client to avoid needing a composite index.
             const q = leaderboardCollection.where('subject', '==', subject);
             const snapshot = await q.get();
 
             let leaderboardData = snapshot.docs.map(doc => doc.data());
             
-            // Client-side sorting: sort by score desc, then by date desc (newer first)
             leaderboardData.sort((a, b) => {
                 if (b.score !== a.score) {
                     return b.score - a.score;
                 }
                 const dateA = a.date ? a.date.toMillis() : 0;
                 const dateB = b.date ? b.date.toMillis() : 0;
-                return dateB - dateA; // Newer scores first for tie-breaking
+                return dateB - dateA;
             });
             
             const top5 = leaderboardData.slice(0, 5);
@@ -118,40 +115,61 @@ document.addEventListener('DOMContentLoaded', function() {
             container.innerHTML = `<div class="empty-leaderboard"><p>載入排名時出錯，請檢查 Firebase 設定。</p></div>`;
         }
     }
+    
+    function getScoreClass(score) {
+        if (score >= 80) return '';
+        if (score >= 60) return 'medium';
+        return 'low';
+    }
 
     function renderLeaderboard(data, container) {
         if (data.length === 0) {
             container.innerHTML = `
                 <div class="empty-leaderboard">
                     <p>暫無排名數據</p>
-                    <a href="exam.html" class="btn btn-primary">參加考試</a>
                 </div>
             `;
             return;
         }
 
-        let html = '<div class="leaderboard-cards">';
-        data.slice(0, 5).forEach((item, index) => {
-            const rankClass = index < 3 ? `top-${index + 1}` : '';
-            const medalOrRank = index < 3 
-                ? `<div class="medal">${index + 1}</div>` 
-                : `<div class="rank">${index + 1}</div>`;
+        let tableBodyHtml = data.map((item, index) => {
+            const rank = index + 1;
+            let rankClass = 'rank-other';
+            if (rank === 1) rankClass = 'rank-1';
+            if (rank === 2) rankClass = 'rank-2';
+            if (rank === 3) rankClass = 'rank-3';
+
+            const itemDate = item.date ? new Date(item.date.seconds * 1000).toLocaleDateString() : 'N/A';
+            const scoreClass = getScoreClass(item.score);
             
-            html += `
-                <div class="leaderboard-card ${rankClass}">
-                    ${medalOrRank}
-                    <div class="user-avatar">${item.nickname.charAt(0)}</div>
-                    <div class="user-name">${item.nickname}</div>
-                    <div class="score">${item.score}</div>
-                </div>
+            return `
+                <tr>
+                    <td><span class="rank-badge ${rankClass}">${rank}</span></td>
+                    <td>${item.nickname}</td>
+                    <td><span class="score-badge ${scoreClass}">${item.score}</span></td>
+                    <td>${itemDate}</td>
+                </tr>
             `;
-        });
-        html += '</div>';
-        container.innerHTML = html;
+        }).join('');
+
+        container.innerHTML = `
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>排名</th>
+                        <th>暱稱</th>
+                        <th>分數</th>
+                        <th>日期</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableBodyHtml}
+                </tbody>
+            </table>
+        `;
     }
 
     // --- History Search Functionality ---
-
     if (!usePreviewMode) {
         searchHistoryBtn.addEventListener('click', searchHistory);
         historyNicknameInput.addEventListener('keypress', (e) => {
@@ -168,7 +186,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     } else {
-        // Disable search in preview mode
         historyNicknameInput.disabled = true;
         searchHistoryBtn.disabled = true;
         historyResultsContainer.innerHTML = '<p class="no-data" style="text-align: center;">此功能在預覽模式下不可用。</p>';
@@ -181,12 +198,12 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        historyResultsContainer.innerHTML = '<div class="loading-spinner">正在查詢紀錄...</div>';
+        searchHistoryBtn.innerHTML = '<div class="loading"></div> 搜尋中...';
+        searchHistoryBtn.disabled = true;
         
         const nicknameLower = nickname.toLowerCase();
 
         try {
-            // Query by the lowercase nickname to avoid case-sensitivity issues.
             const snapshot = await examAttemptsCollection
                 .where('nickname_lowercase', '==', nicknameLower)
                 .get();
@@ -196,7 +213,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Map and sort results on the client side.
             let attempts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             attempts.sort((a, b) => (b.date?.toMillis() || 0) - (a.date?.toMillis() || 0));
 
@@ -205,11 +221,17 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error("Error searching history:", error);
             historyResultsContainer.innerHTML = `<p class="no-data" style="text-align: center;">查詢時發生錯誤，請稍後再試。</p>`;
+        } finally {
+            searchHistoryBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                查詢紀錄
+            `;
+            searchHistoryBtn.disabled = false;
         }
     }
 
     function renderHistoryResults(attempts) {
-        let html = attempts.map(attempt => {
+        let tableBodyHtml = attempts.map(attempt => {
             const attemptDate = attempt.date ? new Date(attempt.date.seconds * 1000).toLocaleString('zh-TW') : 'N/A';
             let title = `${attempt.area} - ${attempt.subject}`;
             if(attempt.area === '國考區') {
@@ -217,24 +239,30 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                  title = `${attempt.area} - ${attempt.subject} (${attempt.examType})`
             }
+            const scoreClass = getScoreClass(attempt.score);
 
             return `
-                <div class="history-item" data-attempt-id="${attempt.id}">
-                    <div class="history-item-info">
-                        <h4>${title}</h4>
-                        <p>考試日期：${attemptDate}</p>
-                    </div>
-                    <div class="history-item-score">${attempt.score}</div>
-                </div>
+                <tr>
+                    <td>${title}</td>
+                    <td>${attemptDate}</td>
+                    <td><span class="score-badge ${scoreClass}">${attempt.score}</span></td>
+                    <td><button class="view-btn" data-attempt-id="${attempt.id}">查看詳情</button></td>
+                </tr>
             `;
         }).join('');
 
-        historyResultsContainer.innerHTML = html;
+        historyResultsContainer.innerHTML = `
+            <table class="leaderboard-table">
+                <thead>
+                    <tr><th>測驗項目</th><th>日期</th><th>分數</th><th>操作</th></tr>
+                </thead>
+                <tbody>${tableBodyHtml}</tbody>
+            </table>
+        `;
 
-        // Attach listeners to new items
-        document.querySelectorAll('.history-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const attemptId = item.dataset.attemptId;
+        document.querySelectorAll('.view-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const attemptId = btn.dataset.attemptId;
                 const selectedAttempt = attempts.find(a => a.id === attemptId);
                 showReviewModal(selectedAttempt);
             });
@@ -287,14 +315,14 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="analysis-header">
                 <div class="analysis-icon-container">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                         <rect width="24" height="24" rx="6"/>
+                         <rect width="24" height="24" rx="6" fill="#3B82F6"/>
                     </svg>
                 </div>
                 <h2>測驗結果分析</h2>
                 <p>深入分析您的答題表現，發現學習重點與改進方向</p>
             </div>
             <div class="analysis-main-grid">
-                <div class="analysis-score-card card">
+                <div class="analysis-score-card card no-hover">
                     <div class="progress-circle" data-progress="${score}">
                         <svg class="progress-ring" width="200" height="200" viewBox="0 0 120 120">
                             <circle class="progress-ring-bg" r="54" cx="60" cy="60"/>
@@ -323,7 +351,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
                 </div>
-                <div class="analysis-achievements-card card">
+                <div class="analysis-achievements-card card no-hover">
                     <h3><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px; color: #f59e0b;"><path d="M12 17.8 5.8 21 7 14.1 2 9.3l7-1L12 2l3 6.3 7 1-5 4.8 1.2 6.9-6.2-3.2Z"></path></svg> 我的成就</h3>
                     <div class="achievement-item">
                         <div class="achievement-icon">
@@ -396,4 +424,26 @@ document.addEventListener('DOMContentLoaded', function() {
         reviewHtml += `</div>`;
         return reviewHtml;
     }
+
+    // Add parallax effect to hero section
+    let ticking = false;
+    function updateParallax() {
+        const scrolled = window.pageYOffset;
+        const hero = document.querySelector('.hero');
+        
+        if (hero && scrolled < 800) { // Only apply effect when hero is somewhat visible
+            hero.style.transform = `translateY(${scrolled * 0.4}px)`;
+        }
+        
+        ticking = false;
+    }
+    
+    function requestTick() {
+        if (!ticking) {
+            window.requestAnimationFrame(updateParallax);
+            ticking = true;
+        }
+    }
+    
+    window.addEventListener('scroll', requestTick, { passive: true });
 });

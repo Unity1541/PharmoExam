@@ -233,7 +233,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h2>試題管理</h2>
                     <div>
                         <span style="color: var(--text-secondary); margin-right: 1rem;">${user.email}</span>
-                        <button id="logout-btn" class="btn btn-secondary">登出</button>
+                        <button id="logout-btn" class="btn btn-secondary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                            登出
+                        </button>
                     </div>
                 </header>
                 
@@ -242,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         ${showForm && !editingQuestionId ? '取消新增' : '新增題目'}
                     </button>
-                     <button id="delete-selected-btn" class="btn btn-secondary" style="background-color: var(--danger-color); color: #fff;" ${!hasSelection ? 'disabled' : ''}>
+                     <button id="delete-selected-btn" class="btn btn-danger" ${!hasSelection ? 'disabled' : ''}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                         刪除選取 (${selectedQuestionIds.size})
                     </button>
@@ -320,8 +323,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
                         <div class="form-actions">
-                            <button type="button" id="cancel-edit-btn" class="btn btn-secondary">取消</button>
-                            <button type="submit" class="btn btn-primary">${editingQuestionId ? '儲存變更' : '建立題目'}</button>
+                            <button type="button" id="cancel-edit-btn" class="btn btn-secondary">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                取消
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                ${editingQuestionId ? '儲存變更' : '建立題目'}
+                            </button>
                         </div>
                     </form>
                 </section>
@@ -342,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <section class="card" style="margin-top: 2rem;">
                     <h3>排名管理</h3>
                     <p class="step-description" style="margin-bottom: 1rem;">此操作將會清除所有科目的排行榜資料，此操作無法復原。</p>
-                    <button id="clear-leaderboard-btn" class="btn btn-secondary" style="background-color: var(--danger-color); color: #fff;">
+                    <button id="clear-leaderboard-btn" class="btn btn-danger">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                         清除所有排名
                     </button>
