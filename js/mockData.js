@@ -12,6 +12,7 @@ const MOCK_QUESTIONS = [
     { id: 'mock_prac_1', area: '各科練習題', year: null, subject: '藥理藥化', examType: '藥物動力學', content: '【章節練習】藥物在體內的分佈容積(Vd)主要受到下列何者的影響？', options: ['藥物的吸收速率', '藥物的排除速率', '藥物與組織蛋白的結合能力', '藥物的化學穩定性'], answer: 2, explanation: '分佈容積(Volume of distribution)是一個理論上的容積，它反映了藥物在體內組織與血液之間分佈的廣泛程度。與組織蛋白結合力越強的藥物，Vd越大。' },
     { id: 'mock_prac_2', area: '各科練習題', year: null, subject: '藥理藥化', examType: '藥物效力學', content: '【章節練習】當一種藥物能與受體結合但不能產生最大效應時，稱之為？', options: ['完全致效劑 (Full agonist)', '部分致效劑 (Partial agonist)', '拮抗劑 (Antagonist)', '反致效劑 (Inverse agonist)'], answer: 1, explanation: '部分致效劑能與受體結合並產生次最大(submaximal)的效應，即使佔滿所有受體也無法達到完全致效劑的Emax。' },
     { id: 'mock_prac_3', area: '各科練習題', year: null, subject: '生藥學', examType: '生物鹼', content: '【章節練習】下列何者是從金雞納樹皮中提取，用於治療瘧疾的生物鹼？', options: ['嗎啡 (Morphine)', '奎寧 (Quinine)', '阿托品 (Atropine)', '古柯鹼 (Cocaine)'], answer: 1, explanation: '奎寧(Quinine)是金雞納樹(Cinchona)皮中的主要生物鹼，為歷史悠久的抗瘧疾藥物。' },
+    { id: 'mock_prac_4', area: '各科練習題', year: null, subject: '藥物分析', examType: '光譜分析法', content: '【章節練習】Beer-Lambert 定律是哪一種光譜分析法的基本原理？', options: ['紅外光譜法', '核磁共振光譜法', '紫外-可見光吸收光譜法', '質譜法'], answer: 2, explanation: 'Beer-Lambert 定律描述了吸光度與吸光物質濃度及光程長度之間的線性關係，是紫外-可見光吸收光譜法(UV-Vis)的定量基礎。' },
     
     // --- 小考練習區 ---
     { id: 'mock_quiz_1', area: '小考練習區', year: null, subject: '藥理藥化', examType: '綜合測驗', content: '【綜合小考】下列何種藥物過量中毒時，可使用N-acetylcysteine (NAC) 作為解毒劑？', options: ['Aspirin', 'Diazepam', 'Acetaminophen', 'Warfarin'], answer: 2, explanation: 'Acetaminophen (普拿疼) 過量會消耗肝臟的glutathione，產生毒性代謝物。NAC可以作為glutathione的前驅物，補充其存量以解毒。' },
@@ -29,7 +30,9 @@ const MOCK_LEADERBOARD = {
         { nickname: '諾伊斯', score: 98 },
         { nickname: '惠特尼', score: 92 },
     ],
-    '藥物分析': [],
+    '藥物分析': [
+        { nickname: '分析大師', score: 99 },
+    ],
     '藥事行政法規': [
          { nickname: '藥學之父', score: 100 },
     ],
