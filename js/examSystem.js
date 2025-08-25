@@ -2,6 +2,8 @@
 
 
 
+
+
 document.addEventListener('DOMContentLoaded', () => {
     const examContainer = document.getElementById('exam-container');
     // Super-gatekeeper: Check for initialization errors first.
@@ -484,8 +486,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function updateLeaderboard() {
-        const { latestExamId, nickname, selectedSubject, selectedYear, selectedExamType, score, selectedArea } = state;
+        const { latestExamId, nickname, selectedSubject, selectedYear, selectedExamType, score, selectedArea, startTime } = state;
         const leaderboardCategory = selectedArea === '小考練習區' ? '小考練習區' : selectedSubject;
+        const completionTimeInSeconds = Math.floor((Date.now() - startTime) / 1000);
 
         const userRecord = {
             nickname,
@@ -496,7 +499,12 @@ document.addEventListener('DOMContentLoaded', () => {
             examType: selectedExamType,
             date: firebase.firestore.FieldValue.serverTimestamp(),
             examId: latestExamId,
+            completionTime: completionTimeInSeconds,
         };
+
+        if (selectedArea === '小考練習區') {
+            userRecord.actualSubject = selectedSubject;
+        }
 
         const querySnapshot = await leaderboardCollection
             .where('subject', '==', leaderboardCategory)

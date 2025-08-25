@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadLeaderboardForSubject(subject, container) {
         if (usePreviewMode) {
-            renderLeaderboard(MOCK_LEADERBOARD[subject] || [], container);
+            renderLeaderboard(MOCK_LEADERBOARD[subject] || [], container, subject);
             return;
         }
 
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             const top5 = leaderboardData.slice(0, 5);
-            renderLeaderboard(top5, container);
+            renderLeaderboard(top5, container, subject);
 
         } catch (error) {
             console.error(`Error loading leaderboard for ${subject}:`, error);
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return 'low';
     }
 
-    function renderLeaderboard(data, container) {
+    function renderLeaderboard(data, container, subject) {
         if (data.length === 0) {
             container.innerHTML = `
                 <div class="empty-leaderboard">
@@ -139,14 +139,25 @@ document.addEventListener('DOMContentLoaded', function() {
             if (rank === 2) rankClass = 'rank-2';
             if (rank === 3) rankClass = 'rank-3';
 
-            const itemDate = item.date ? new Date(item.date.seconds * 1000).toLocaleDateString() : 'N/A';
+            const itemDate = item.date && item.date.seconds ? new Date(item.date.seconds * 1000).toLocaleDateString() : 'N/A';
             const scoreClass = getScoreClass(item.score);
+
+            let detailsHtml = '-';
+            if (subject === '小考練習區' && item.actualSubject) {
+                detailsHtml = `小考: ${item.actualSubject}`;
+            } else if (item.examType) {
+                detailsHtml = item.examType;
+            }
+
+            const completionTime = formatTime(item.completionTime);
             
             return `
                 <tr>
                     <td><span class="rank-badge ${rankClass}">${rank}</span></td>
                     <td>${item.nickname}</td>
                     <td><span class="score-badge ${scoreClass}">${item.score}</span></td>
+                    <td class="details-col" title="${detailsHtml}">${detailsHtml}</td>
+                    <td>${completionTime}</td>
                     <td>${itemDate}</td>
                 </tr>
             `;
@@ -159,6 +170,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <th>排名</th>
                         <th>暱稱</th>
                         <th>分數</th>
+                        <th class="details-col-header">詳情</th>
+                        <th>完成時間</th>
                         <th>日期</th>
                     </tr>
                 </thead>

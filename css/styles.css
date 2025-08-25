@@ -367,6 +367,19 @@ main.landing-main {
 .rank-3 { background: linear-gradient(135deg, #CD7F32 0%, #B87333 100%); color: white; }
 .rank-other { background: #e5e7eb; color: #6b7280; }
 
+.leaderboard-table th.details-col-header, .leaderboard-table td.details-col {
+    max-width: 180px;
+}
+
+.leaderboard-table td.details-col {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
 /* History Search Box */
 .search-box {
     background: linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%);

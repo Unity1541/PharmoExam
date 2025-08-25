@@ -22,32 +22,32 @@ const MOCK_QUESTIONS = [
 
 const MOCK_LEADERBOARD = {
     '藥理藥化': [
-        { nickname: '弗萊明', score: 100 },
-        { nickname: '杜馬克', score: 95 },
-        { nickname: '伯韋', score: 90 },
+        { nickname: '弗萊明', score: 100, examType: '第一次藥師考試', completionTime: 1820, date: { seconds: 1672531200 } },
+        { nickname: '杜馬克', score: 95, examType: '第二次藥師考試', completionTime: 2100, date: { seconds: 1672444800 } },
+        { nickname: '伯韋', score: 90, examType: '藥物動力學', completionTime: 950, date: { seconds: 1672358400 } },
     ],
     '生物藥劑': [
-        { nickname: '諾伊斯', score: 98 },
-        { nickname: '惠特尼', score: 92 },
+        { nickname: '諾伊斯', score: 98, examType: '第二次藥師考試', completionTime: 2450, date: { seconds: 1672531200 } },
+        { nickname: '惠特尼', score: 92, examType: '第二次藥師考試', completionTime: 2800, date: { seconds: 1672444800 } },
     ],
     '藥物分析': [
-        { nickname: '分析大師', score: 99 },
+        { nickname: '分析大師', score: 99, examType: '光譜分析法', completionTime: 850, date: { seconds: 1672531200 } },
     ],
     '藥事行政法規': [
-         { nickname: '藥學之父', score: 100 },
+         { nickname: '藥學之父', score: 100, examType: '第一次藥師考試', completionTime: 1500, date: { seconds: 1672531200 } },
     ],
     '藥物治療': [],
     '藥劑學': [
-        { nickname: '蓋倫', score: 88 },
-        { nickname: '阿維森納', score: 85 },
+        { nickname: '蓋倫', score: 88, examType: '第一次藥師考試', completionTime: 3100, date: { seconds: 1672531200 } },
+        { nickname: '阿維森納', score: 85, examType: '第一次藥師考試', completionTime: 3500, date: { seconds: 1672444800 } },
     ],
     '生藥學': [
-        { nickname: '神農氏', score: 99 },
-        { nickname: '李時珍', score: 96 },
+        { nickname: '神農氏', score: 99, examType: '生物鹼', completionTime: 620, date: { seconds: 1672531200 } },
+        { nickname: '李時珍', score: 96, examType: '生物鹼', completionTime: 710, date: { seconds: 1672444800 } },
     ],
     '小考練習區': [
-        { nickname: '練習狂人', score: 98 },
-        { nickname: '快手小張', score: 95 },
-        { nickname: '答題機器', score: 91 },
+        { nickname: '練習狂人', score: 98, subject: '小考練習區', actualSubject: '藥理藥化', examType: '綜合測驗', completionTime: 350, date: { seconds: 1672531200 } },
+        { nickname: '快手小張', score: 95, subject: '小考練習區', actualSubject: '藥劑學', examType: '綜合測驗', completionTime: 410, date: { seconds: 1672444800 } },
+        { nickname: '答題機器', score: 91, subject: '小考練習區', actualSubject: '生藥學', examType: '綜合測驗', completionTime: 450, date: { seconds: 1672358400 } },
     ],
 };
