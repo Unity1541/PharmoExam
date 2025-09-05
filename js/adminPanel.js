@@ -1,6 +1,3 @@
-
-
-
 document.addEventListener('DOMContentLoaded', () => {
     const adminContainer = document.getElementById('admin-container');
 
@@ -69,6 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const questionsCollection = db.collection('questions');
     const leaderboardCollection = db.collection('leaderboard');
     const examAttemptsCollection = db.collection('examAttempts');
+    const announcementsCollection = db.collection('announcements');
+    const settingsCollection = db.collection('settings');
 
     const examAreas = ['國考區', '各科練習題', '小考練習區'];
     const availableYears = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017'];
@@ -111,6 +110,10 @@ document.addEventListener('DOMContentLoaded', () => {
         filteredExamAttempts: [],
         loadingAttempts: false,
         viewingAttempt: null,
+        announcements: [],
+        loadingAnnouncements: false,
+        editingAnnouncementId: null,
+        examCountdownDate: '',
     };
 
     function setState(newState) {
@@ -121,9 +124,11 @@ document.addEventListener('DOMContentLoaded', () => {
     auth.onAuthStateChanged(user => {
         if (user) {
             document.body.classList.add('admin');
-            setState({ isLoggedIn: true, user, loading: true, loadingAttempts: true });
+            setState({ isLoggedIn: true, user, loading: true, loadingAttempts: true, loadingAnnouncements: true });
             loadQuestions();
             loadExamAttempts();
+            loadAnnouncements();
+            loadCountdownDate();
         } else {
             document.body.classList.remove('admin');
             setState({ isLoggedIn: false, user: null, questions: [], filteredQuestions: [], examAttempts: [], filteredExamAttempts: [] });
@@ -154,6 +159,29 @@ document.addEventListener('DOMContentLoaded', () => {
             setState({ loadingAttempts: false });
         }
     }
+
+    async function loadAnnouncements() {
+        try {
+            const snapshot = await announcementsCollection.orderBy('timestamp', 'desc').get();
+            const announcements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setState({ announcements, loadingAnnouncements: false });
+        } catch (error) {
+            console.error("Error loading announcements:", error);
+            setState({ loadingAnnouncements: false });
+        }
+    }
+
+    async function loadCountdownDate() {
+        try {
+            const doc = await settingsCollection.doc('mainConfig').get();
+            if (doc.exists) {
+                setState({ examCountdownDate: doc.data().examDate || '' });
+            }
+        } catch (error) {
+            console.error("Error loading countdown date:", error);
+        }
+    }
+
 
     function render() {
         if (!state.isLoggedIn) {
@@ -347,6 +375,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </section>
 
+                <section class="admin-section">
+                    <h3>系統設定</h3>
+                    <div class="form-group">
+                        <label for="countdown-date-input">國考倒數日期</label>
+                        <p class="step-description" style="margin-bottom: 1rem;">設定顯示在首頁的國考倒數計時器目標日期。</p>
+                        <input type="date" id="countdown-date-input" value="${state.examCountdownDate}">
+                    </div>
+                    <button id="save-countdown-btn" class="btn btn-primary">儲存日期</button>
+                </section>
+        
+                <section class="admin-section">
+                    <h3>最新公告管理</h3>
+                    <form id="announcement-form" class="card" style="margin-bottom: 2rem;">
+                        <h4>${state.editingAnnouncementId ? '編輯公告' : '新增公告'}</h4>
+                        <div class="form-group">
+                            <label for="announcement-title">標題</label>
+                            <input type="text" id="announcement-title" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="announcement-content">內容</label>
+                            <textarea id="announcement-content" rows="5" required placeholder="請輸入公告內容..."></textarea>
+                        </div>
+                        <div class="form-actions" style="justify-content: flex-end;">
+                            <button type="button" id="cancel-announcement-edit-btn" class="btn btn-secondary" style="display: none;">取消編輯</button>
+                            <button type="submit" class="btn btn-primary">${state.editingAnnouncementId ? '儲存變更' : '發佈公告'}</button>
+                        </div>
+                    </form>
+                    <div id="announcements-list-admin">
+                        ${state.loadingAnnouncements ? '<div class="loading-spinner"></div>' : renderAnnouncementsList()}
+                    </div>
+                </section>
+
                 <section class="card" style="margin-top: 2rem;">
                     <h3>排名管理</h3>
                     <p class="step-description" style="margin-bottom: 1rem;">此操作將會清除所有科目的排行榜資料，此操作無法復原。</p>
@@ -476,6 +536,31 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    function renderAnnouncementsList() {
+        if (state.announcements.length === 0) {
+            return '<p>尚無公告。</p>';
+        }
+        return state.announcements.map(ann => {
+            const date = ann.timestamp ? new Date(ann.timestamp.seconds * 1000).toLocaleString('zh-TW') : '';
+            return `
+                <div class="announcement-admin-item">
+                    <div class="announcement-admin-item-content">
+                        <h5>${ann.title}</h5>
+                        <small>${date}</small>
+                    </div>
+                    <div class="question-item-actions">
+                        <button class="action-btn edit-announcement-btn" data-id="${ann.id}" title="編輯">
+                           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        </button>
+                        <button class="action-btn delete-announcement-btn" data-id="${ann.id}" title="刪除">
+                           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
     function updateFormFields() {
         const area = document.getElementById('form-area').value;
         const subject = document.getElementById('form-subject').value;
@@ -562,6 +647,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         document.querySelectorAll('.view-attempt-btn').forEach(btn => btn.addEventListener('click', handleViewAttempt));
         document.querySelectorAll('.delete-attempt-btn').forEach(btn => btn.addEventListener('click', handleDeleteAttempt));
+
+        // New listeners
+        document.getElementById('save-countdown-btn')?.addEventListener('click', handleSaveCountdown);
+        document.getElementById('announcement-form')?.addEventListener('submit', handleAnnouncementSubmit);
+        document.getElementById('cancel-announcement-edit-btn')?.addEventListener('click', cancelAnnouncementEdit);
+        document.querySelectorAll('.edit-announcement-btn').forEach(b => b.addEventListener('click', handleEditAnnouncement));
+        document.querySelectorAll('.delete-announcement-btn').forEach(b => b.addEventListener('click', handleDeleteAnnouncement));
+
     }
     
     async function handleClearLeaderboard() {
@@ -786,6 +879,82 @@ document.addEventListener('DOMContentLoaded', () => {
         {
             console.error("Error saving question:", error);
             alert('儲存題目時發生錯誤。');
+        }
+    }
+
+    async function handleSaveCountdown() {
+        const date = document.getElementById('countdown-date-input').value;
+        if (!date) {
+            alert('請選擇一個有效的日期。');
+            return;
+        }
+        try {
+            await settingsCollection.doc('mainConfig').set({ examDate: date }, { merge: true });
+            alert('倒數日期已更新。');
+            setState({ examCountdownDate: date });
+        } catch (error) {
+            alert('儲存失敗：' + error.message);
+        }
+    }
+    
+    function cancelAnnouncementEdit() {
+        setState({ editingAnnouncementId: null });
+        document.getElementById('announcement-form').reset();
+        document.getElementById('cancel-announcement-edit-btn').style.display = 'none';
+    }
+    
+    async function handleAnnouncementSubmit(e) {
+        e.preventDefault();
+        const title = document.getElementById('announcement-title').value;
+        const content = document.getElementById('announcement-content').value;
+        if (!title || !content) {
+            alert('標題和內容為必填項。');
+            return;
+        }
+    
+        const data = {
+            title,
+            content,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        };
+    
+        try {
+            if (state.editingAnnouncementId) {
+                await announcementsCollection.doc(state.editingAnnouncementId).update(data);
+                alert('公告已更新。');
+            } else {
+                await announcementsCollection.add(data);
+                alert('公告已發佈。');
+            }
+            cancelAnnouncementEdit();
+            loadAnnouncements();
+        } catch (error) {
+            alert('操作失敗：' + error.message);
+        }
+    }
+    
+    function handleEditAnnouncement(e) {
+        const id = e.currentTarget.dataset.id;
+        const announcement = state.announcements.find(a => a.id === id);
+        if (announcement) {
+            document.getElementById('announcement-title').value = announcement.title;
+            document.getElementById('announcement-content').value = announcement.content;
+            document.getElementById('cancel-announcement-edit-btn').style.display = 'inline-flex';
+            setState({ editingAnnouncementId: id });
+            document.getElementById('announcement-form').scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+    
+    async function handleDeleteAnnouncement(e) {
+        const id = e.currentTarget.dataset.id;
+        if (confirm('確定要刪除此公告嗎？')) {
+            try {
+                await announcementsCollection.doc(id).delete();
+                alert('公告已刪除。');
+                loadAnnouncements();
+            } catch (error) {
+                alert('刪除失敗：' + error.message);
+            }
         }
     }
     

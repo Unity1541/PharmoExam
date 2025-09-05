@@ -1,4 +1,3 @@
-
 # Firebase 設定指南
 
 本指南將引導您完成此線上考試系統所需的 Firebase 專案設定。
@@ -80,6 +79,22 @@
           // 讀取是為了讓考生能查詢自己的歷史紀錄。
           allow read, write: if true;
         }
+        
+        // 公告 (announcements) 集合的規則
+        match /announcements/{announcementId} {
+          // 允許任何人讀取公告
+          allow read: if true;
+          // 只允許已登入的使用者(管理者)寫入
+          allow write: if request.auth != null;
+        }
+
+        // 系統設定 (settings) 集合的規則
+        match /settings/{settingId} {
+          // 允許任何人讀取設定 (例如倒數日期)
+          allow read: if true;
+          // 只允許已登入的使用者(管理者)寫入
+          allow write: if request.auth != null;
+        }
       }
     }
     ```
@@ -118,7 +133,7 @@ Firestore 需要索引才能支援特定的複雜查詢。**如果沒有建立�
 
 **解決方法：**
 
-請直接回到本文件的【步驟 5】，檢查您的 Firestore「規則 (Rules)」是否**完整包含** `questions`, `leaderboard`, 和 `examAttempts` 這三個集合的規則。最常見的錯誤是**缺少 `examAttempts` 的存取規則**。
+請直接回到本文件的【步驟 5】，檢查您的 Firestore「規則 (Rules)」是否**完整包含**所有必要的集合規則。最常見的錯誤是**缺少 `examAttempts` 的存取規則**。
 
 ---
 
@@ -126,11 +141,17 @@ Firestore 需要索引才能支援特定的複雜查詢。**如果沒有建立�
 
 您的 Firestore 資料庫將會自動建立以下幾個集合 (Collections)：
 
-### 1. `questions` 集合
+### 1. `questions`
 此集合用於存放所有考試題目。
 
-### 2. `leaderboard` 集合
+### 2. `leaderboard`
 此集合用於儲存所有考生的成績，以建立排行榜。
 
-### 3. `examAttempts` 集合
+### 3. `examAttempts`
 此集合用於儲存每一次完整的作答紀錄，供使用者查詢。
+
+### 4. `announcements`
+此集合用於存放由管理員發佈的系統公告。
+
+### 5. `settings`
+此集合用於存放全站性的設定，例如國考倒數日期。預計只會有一個 ID 為 `mainConfig` 的文件。

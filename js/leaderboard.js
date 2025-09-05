@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const usePreviewMode = !isFirebaseConfigured();
     const leaderboardCollection = usePreviewMode ? null : db.collection('leaderboard');
     const examAttemptsCollection = usePreviewMode ? null : db.collection('examAttempts');
+    const announcementsCollection = usePreviewMode ? null : db.collection('announcements');
+    const settingsCollection = usePreviewMode ? null : db.collection('settings');
     
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
@@ -62,11 +64,17 @@ document.addEventListener('DOMContentLoaded', function() {
             
             tabContents.forEach(content => content.classList.remove('active'));
             
-            const subjectKey = this.getAttribute('data-subject');
-            const leaderboardContainerId = `${Object.keys(subjectMapping).find(key => subjectMapping[key] === subjectKey)}-leaderboard`;
-            const container = document.getElementById(leaderboardContainerId)
-            if (container) {
-                container.classList.add('active');
+            let targetContent;
+            if (this.dataset.tab === 'announcements') {
+                targetContent = document.getElementById('announcements-content');
+            } else {
+                const subjectKey = this.getAttribute('data-subject');
+                const leaderboardContainerId = `${Object.keys(subjectMapping).find(key => subjectMapping[key] === subjectKey)}-leaderboard`;
+                targetContent = document.getElementById(leaderboardContainerId);
+            }
+            
+            if (targetContent) {
+                targetContent.classList.add('active');
             }
         });
     });
@@ -74,7 +82,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (usePreviewMode) {
         showPreviewWarning();
     }
+    
     loadAllLeaderboards();
+    loadAnnouncements();
+    loadCountdown();
 
     async function loadAllLeaderboards() {
         for (const key in subjectMapping) {
@@ -180,6 +191,86 @@ document.addEventListener('DOMContentLoaded', function() {
                 </tbody>
             </table>
         `;
+    }
+
+    async function loadAnnouncements() {
+        const container = document.getElementById('announcements-content');
+        if (usePreviewMode) {
+            const mockAnnouncements = [
+                { title: '系統維護公告', content: '親愛的同學您好：\n本系統預計於 2025/10/25 (六) 凌晨 02:00 - 04:00 進行系統維護，屆時將暫停服務。\n造成不便，敬請見諒。', timestamp: { seconds: new Date().getTime()/1000 } },
+                { title: '歡迎使用新版線上考試系統！', content: '我們很高興推出全新改版的考試系統，提供更流暢的使用體驗與更豐富的功能。', timestamp: { seconds: (new Date().getTime()/1000) - 86400 } }
+            ];
+            renderAnnouncements(mockAnnouncements, container);
+            return;
+        }
+        
+        try {
+            const snapshot = await announcementsCollection.orderBy('timestamp', 'desc').get();
+            const announcements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderAnnouncements(announcements, container);
+        } catch (error) {
+            console.error("Error loading announcements:", error);
+            container.innerHTML = `<div class="empty-leaderboard"><p>載入公告時發生錯誤。</p></div>`;
+        }
+    }
+    
+    function renderAnnouncements(data, container) {
+        if (data.length === 0) {
+            container.innerHTML = `<div class="empty-leaderboard"><p>目前沒有任何公告。</p></div>`;
+            return;
+        }
+        
+        const html = data.map(ann => {
+            const date = ann.timestamp ? new Date(ann.timestamp.seconds * 1000).toLocaleDateString('zh-TW') : '';
+            return `
+                <div class="announcement-item">
+                    <h4>${ann.title}</h4>
+                    <div class="date">${date}</div>
+                    <p>${ann.content}</p>
+                </div>
+            `;
+        }).join('');
+        
+        container.innerHTML = `<div class="announcement-list">${html}</div>`;
+    }
+    
+    async function loadCountdown() {
+        const daysSpan = document.getElementById('countdown-days');
+        if (!daysSpan) return;
+    
+        if (usePreviewMode) {
+            daysSpan.textContent = '120';
+            return;
+        }
+    
+        try {
+            const doc = await settingsCollection.doc('mainConfig').get();
+            if (doc.exists) {
+                const data = doc.data();
+                const examDateStr = data.examDate; // Expects "YYYY-MM-DD"
+                if (examDateStr) {
+                    const examDate = new Date(examDateStr + 'T00:00:00');
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    
+                    const diffTime = examDate - today;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+                    if (diffDays >= 0) {
+                        daysSpan.textContent = diffDays;
+                    } else {
+                        daysSpan.textContent = '已結束';
+                    }
+                } else {
+                     daysSpan.textContent = '未設定';
+                }
+            } else {
+                daysSpan.textContent = '未設定';
+            }
+        } catch (error) {
+            console.error("Error loading countdown date:", error);
+            daysSpan.textContent = '錯誤';
+        }
     }
 
     // --- History Search Functionality ---
