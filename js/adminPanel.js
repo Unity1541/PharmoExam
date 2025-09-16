@@ -95,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
         questions: [],
         filteredQuestions: [],
         loading: false,
+        initialQuestionLoad: true, // New state to track if a search has been performed
         editingQuestionId: null,
         showForm: false,
         filters: {
@@ -124,8 +125,16 @@ document.addEventListener('DOMContentLoaded', () => {
     auth.onAuthStateChanged(user => {
         if (user) {
             document.body.classList.add('admin');
-            setState({ isLoggedIn: true, user, loading: true, loadingAttempts: true, loadingAnnouncements: true });
-            loadQuestions();
+            setState({ 
+                isLoggedIn: true, 
+                user, 
+                loading: false, 
+                loadingAttempts: true, 
+                loadingAnnouncements: true, 
+                initialQuestionLoad: true, 
+                questions: [], 
+                filteredQuestions: [] 
+            });
             loadExamAttempts();
             loadAnnouncements();
             loadCountdownDate();
@@ -134,19 +143,6 @@ document.addEventListener('DOMContentLoaded', () => {
             setState({ isLoggedIn: false, user: null, questions: [], filteredQuestions: [], examAttempts: [], filteredExamAttempts: [] });
         }
     });
-
-    async function loadQuestions() {
-        try {
-            // Sort by a timestamp if available, otherwise no specific order from db
-            const snapshot = await questionsCollection.get();
-            const questions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a,b) => (b.year || 0) - (a.year || 0));
-            setState({ questions, filteredQuestions: questions, loading: false });
-        } catch (error) {
-            console.error("Error loading questions:", error);
-            alert('無法載入試題資料。');
-            setState({ loading: false });
-        }
-    }
     
     async function loadExamAttempts() {
         try {
@@ -363,13 +359,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 </section>
 
                 <main id="question-list-container">
-                    ${loading ? '<div class="loading-spinner">載入中...</div>' : renderQuestionList()}
+                    ${renderQuestionList()}
                 </main>
                 
                  <!-- 作答紀錄管理 -->
                 <section class="card" style="margin-top: 2rem;">
                     <h3>作答紀錄管理</h3>
                     <p class="step-description" style="margin-bottom: 1rem;">此處列出所有使用者的考試紀錄。您可以查看詳細作答情況或刪除紀錄。</p>
+                    <div style="margin-bottom: 1.5rem;">
+                        <button id="clear-attempts-btn" class="btn btn-danger">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                            清除所有作答紀錄
+                        </button>
+                    </div>
                     <div id="attempt-list-container">
                          ${loadingAttempts ? '<div class="loading-spinner">載入中...</div>' : renderAttemptList()}
                     </div>
@@ -441,16 +443,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderQuestionList() {
-        const { filteredQuestions, expandedQuestionId, selectedQuestionIds } = state;
+        const { filteredQuestions, expandedQuestionId, selectedQuestionIds, initialQuestionLoad, loading } = state;
+
+        if (loading) {
+            return '<div class="loading-spinner">查詢中...</div>';
+        }
+
+        if (initialQuestionLoad) {
+            return '<div class="no-questions" style="padding: var(--spacing-8)">請使用上方的篩選器來查詢題目。</div>';
+        }
 
         if (filteredQuestions.length === 0) {
-            return '<div class="no-questions">找不到符合條件的題目，或尚未建立任何題目。</div>';
+            return '<div class="no-questions" style="padding: var(--spacing-8)">找不到符合條件的題目。</div>';
         }
         
         const areAllFilteredSelected = filteredQuestions.length > 0 && filteredQuestions.every(q => selectedQuestionIds.has(q.id));
 
         return `
-            <div class="question-list-actions" style="margin-bottom: 1rem; padding: 0.5rem 1rem; display: flex; align-items: center; background-color: var(--bg-color); border: 1px solid var(--card-border); border-radius: var(--border-radius);">
+            <div class="question-list-actions" style="margin-bottom: 1rem; padding: 0.5rem 1rem; display: flex; align-items: center; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem;">
                 <input type="checkbox" id="select-all-checkbox" style="margin-right: 0.75rem; transform: scale(1.2);" ${areAllFilteredSelected ? 'checked' : ''}>
                 <label for="select-all-checkbox" style="font-weight: 500; color: var(--text-secondary);">全選/取消全選目前顯示的 ${filteredQuestions.length} 個題目</label>
             </div>
@@ -490,7 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </li>
                             `).join('')}
                         </ol>
-                        ${q.explanation ? `<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--card-border);"><strong>詳解：</strong><br>${q.explanation.replace(/\n/g, '<br>')}</div>` : ''}
+                        ${q.explanation ? `<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;"><strong>詳解：</strong><br>${q.explanation.replace(/\n/g, '<br>')}</div>` : ''}
                     </div>
                 </div>
                 `).join('')}
@@ -647,6 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         document.querySelectorAll('.view-attempt-btn').forEach(btn => btn.addEventListener('click', handleViewAttempt));
         document.querySelectorAll('.delete-attempt-btn').forEach(btn => btn.addEventListener('click', handleDeleteAttempt));
+        document.getElementById('clear-attempts-btn')?.addEventListener('click', handleClearAllAttempts);
 
         // New listeners
         document.getElementById('save-countdown-btn')?.addEventListener('click', handleSaveCountdown);
@@ -672,24 +683,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function handleFilterChange() {
+    async function handleFilterChange() {
         const filters = {
-            searchTerm: document.getElementById('search-input').value,
+            searchTerm: document.getElementById('search-input').value.toLowerCase(),
             area: document.getElementById('area-filter').value,
             year: document.getElementById('year-filter').value,
             subject: document.getElementById('subject-filter').value,
             examType: document.getElementById('exam-type-filter').value,
         };
-
-        const filteredQuestions = state.questions.filter(q => {
-            const searchMatch = !filters.searchTerm || q.content.toLowerCase().includes(filters.searchTerm.toLowerCase());
-            const areaMatch = !filters.area || q.area === filters.area;
-            const yearMatch = !filters.year || q.year === filters.year;
-            const subjectMatch = !filters.subject || q.subject === filters.subject;
-            const examTypeMatch = !filters.examType || q.examType === filters.examType;
-            return searchMatch && areaMatch && yearMatch && subjectMatch && examTypeMatch;
-        });
-        setState({ filters, filteredQuestions });
+        
+        state.filters = filters; 
+    
+        if (!filters.area && !filters.year && !filters.subject && !filters.examType) {
+            setState({ 
+                questions: [], 
+                filteredQuestions: [], 
+                initialQuestionLoad: true 
+            });
+            return;
+        }
+    
+        setState({ loading: true, initialQuestionLoad: false });
+    
+        try {
+            let query = questionsCollection;
+            if (filters.area) query = query.where('area', '==', filters.area);
+            if (filters.year) query = query.where('year', '==', filters.year);
+            if (filters.subject) query = query.where('subject', '==', filters.subject);
+            if (filters.examType) query = query.where('examType', '==', filters.examType);
+    
+            const snapshot = await query.get();
+            const fetchedQuestions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+            const clientFilteredQuestions = filters.searchTerm 
+                ? fetchedQuestions.filter(q => q.content.toLowerCase().includes(filters.searchTerm))
+                : fetchedQuestions;
+            
+            setState({
+                questions: fetchedQuestions,
+                filteredQuestions: clientFilteredQuestions,
+                loading: false
+            });
+    
+        } catch (error) {
+            console.error("Error fetching filtered questions:", error);
+            alert('查詢題目時發生錯誤，這通常是缺少資料庫索引。請檢查瀏覽器主控台中的錯誤訊息以取得建立索引的連結。');
+            setState({ loading: false, questions: [], filteredQuestions: [], initialQuestionLoad: true });
+        }
     }
 
     function toggleAddForm() {
@@ -711,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirm('確定要刪除此題目嗎？此操作無法復原。')) {
             try {
                 await questionsCollection.doc(id).delete();
-                loadQuestions(); // Refresh list
+                handleFilterChange(); // Refresh list based on current filters
             } catch (error) {
                 console.error("Error deleting question:", error);
                 alert('刪除題目時發生錯誤。');
@@ -727,7 +767,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 details.style.display = 'none';
                 setState({ expandedQuestionId: null });
             } else {
-                // Collapse previously opened one if any
                 const oldDetails = state.expandedQuestionId ? document.querySelector(`#q-item-${state.expandedQuestionId} .question-item-details`) : null;
                 if(oldDetails) oldDetails.style.display = 'none';
 
@@ -778,7 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await batch.commit();
             alert(`已成功刪除 ${count} 個題目。`);
             setState({ selectedQuestionIds: new Set() });
-            loadQuestions();
+            handleFilterChange();
         } catch (error) {
             console.error("Error deleting selected questions:", error);
             alert('刪除題目時發生錯誤。');
@@ -817,6 +856,50 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("Error deleting attempt:", error);
             alert(`刪除紀錄時發生錯誤: ${error.message}`);
+        }
+    }
+
+    async function handleClearAllAttempts() {
+        if (!confirm(`確定要清除所有 ${state.examAttempts.length} 筆作答紀錄嗎？\n此操作無法復原。排行榜資料不受影響，可另外手動清除。`)) {
+            return;
+        }
+    
+        setState({ loadingAttempts: true });
+        
+        try {
+            const snapshot = await examAttemptsCollection.get();
+            if (snapshot.empty) {
+                alert('沒有任何作答紀錄可供刪除。');
+                setState({ loadingAttempts: false });
+                return;
+            }
+    
+            // Firestore batches are limited to 500 operations.
+            const batchArray = [];
+            batchArray.push(db.batch());
+            let operationCounter = 0;
+            let batchIndex = 0;
+    
+            snapshot.docs.forEach(doc => {
+                batchArray[batchIndex].delete(doc.ref);
+                operationCounter++;
+    
+                if (operationCounter === 500) {
+                    batchArray.push(db.batch());
+                    batchIndex++;
+                    operationCounter = 0;
+                }
+            });
+    
+            await Promise.all(batchArray.map(batch => batch.commit()));
+    
+            alert(`已成功刪除所有 ${snapshot.size} 筆作答紀錄。`);
+            await loadExamAttempts(); // This will reset loading state
+    
+        } catch (error) {
+            console.error("Error clearing all attempts:", error);
+            alert(`清除紀錄時發生錯誤: ${error.message}`);
+            setState({ loadingAttempts: false });
         }
     }
 
@@ -873,8 +956,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 await questionsCollection.add(newQuestionData);
             }
-            setState({ showForm: false, editingQuestionId: null, loading: true });
-            loadQuestions(); // Refresh list
+            setState({ showForm: false, editingQuestionId: null });
+            handleFilterChange(); // Refresh list
         } catch (error)
         {
             console.error("Error saving question:", error);
