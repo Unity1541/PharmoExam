@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     const adminContainer = document.getElementById('admin-container');
 
@@ -241,9 +242,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function renderAdminPanel() {
-        const { loading, showForm, editingQuestionId, filters, user, viewingAttempt, loadingAttempts, selectedQuestionIds } = state;
+        const { loading, showForm, editingQuestionId, filters, user, viewingAttempt, loadingAttempts, selectedQuestionIds, initialQuestionLoad, filteredQuestions } = state;
         const editingQuestion = editingQuestionId ? state.questions.find(q => q.id === editingQuestionId) : null;
         const hasSelection = selectedQuestionIds.size > 0;
+        const hasFilteredQuestions = !initialQuestionLoad && filteredQuestions.length > 0;
         
         let modalContent = '';
         if (viewingAttempt) {
@@ -271,6 +273,10 @@ document.addEventListener('DOMContentLoaded', () => {
                      <button id="delete-selected-btn" class="btn btn-danger" ${!hasSelection ? 'disabled' : ''}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                         刪除選取 (${selectedQuestionIds.size})
+                    </button>
+                     <button id="print-questions-btn" class="btn btn-secondary" ${!hasFilteredQuestions ? 'disabled' : ''}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                        列印考題
                     </button>
                     <input type="search" id="search-input" placeholder="搜尋題目內容..." value="${filters.searchTerm}">
                     <select id="area-filter">
@@ -428,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         if (viewingAttempt) {
-            animateProgressCircle(viewingAttempt.score);
+            document.getElementById('print-attempt-btn')?.addEventListener('click', () => handlePrintAttempt(viewingAttempt));
         }
 
         attachAdminListeners();
@@ -658,6 +664,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.view-attempt-btn').forEach(btn => btn.addEventListener('click', handleViewAttempt));
         document.querySelectorAll('.delete-attempt-btn').forEach(btn => btn.addEventListener('click', handleDeleteAttempt));
         document.getElementById('clear-attempts-btn')?.addEventListener('click', handleClearAllAttempts);
+
+        // Print button
+        document.getElementById('print-questions-btn')?.addEventListener('click', handlePrintQuestions);
 
         // New listeners
         document.getElementById('save-countdown-btn')?.addEventListener('click', handleSaveCountdown);
@@ -1048,22 +1057,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
-    function animateProgressCircle(score) {
-        const circle = document.querySelector('.progress-ring-track-green');
-        if (!circle) return;
-    
-        const radius = circle.r.baseVal.value;
-        const circumference = 2 * Math.PI * radius;
-        const offset = circumference - (score / 100) * circumference;
-    
-        circle.style.strokeDasharray = `${circumference} ${circumference}`;
-        
-        setTimeout(() => {
-            circle.style.transition = 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
-            circle.style.strokeDashoffset = offset;
-        }, 100);
-    }
-
     function renderAnalysisReport(attempt) {
         const { score, questions, area, year, subject, examType, completionTime } = attempt;
 
@@ -1075,65 +1068,72 @@ document.addEventListener('DOMContentLoaded', () => {
             title = `${year} ${subject} - ${examType}`;
         }
     
-        const reportHTML = `
-        <div class="analysis-container">
-            <div class="analysis-header">
-                <div class="analysis-icon-container">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="24" height="24" rx="6"/>
-                    </svg>
-                </div>
-                <h2>測驗結果分析</h2>
-                <p>深入分析您的答題表現，發現學習重點與改進方向</p>
-            </div>
-            <div class="analysis-main-grid">
-                <div class="analysis-score-card card">
-                    <div class="progress-circle" data-progress="${score}">
-                        <svg class="progress-ring" width="200" height="200" viewBox="0 0 120 120">
-                            <circle class="progress-ring-bg" r="54" cx="60" cy="60"/>
-                            <circle class="progress-ring-track-red" r="54" cx="60" cy="60"/>
-                            <circle class="progress-ring-track-green" r="54" cx="60" cy="60"/>
-                        </svg>
-                        <div class="progress-text">${score}%</div>
+        const summaryHTML = `
+            <div class="analysis-container">
+                <div class="analysis-header">
+                    <div class="analysis-icon-container">
+                        <!-- SVG Removed for PDF compatibility -->
                     </div>
-                    <div class="analysis-exam-title">「${title}」測驗結果</div>
-                    <div class="analysis-stats">
-                        <div class="stat-item">
-                            <span class="stat-value">${correctCount}</span>
-                            <span class="stat-label">答對題數</span>
+                    <h2>測驗結果分析</h2>
+                    <p>深入分析您的答題表現，發現學習重點與改進方向</p>
+                </div>
+                <div class="analysis-main-grid">
+                    <div class="analysis-score-card card">
+                        <div class="simple-score-display ${score >= 60 ? 'pass' : 'fail'}">
+                            <div class="score-value">${score}</div>
+                            <div class="score-unit">分</div>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-value">${totalQuestions}</span>
-                            <span class="stat-label">總題數</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-value">${completionTimeFormatted}</span>
-                            <span class="stat-label">完成時間</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-value">+${score}</span>
-                            <span class="stat-label">獲得分數</span>
+                        <div class="analysis-exam-title">「${title}」測驗結果</div>
+                        <div class="analysis-stats">
+                            <div class="stat-item">
+                                <span class="stat-value">${correctCount}</span>
+                                <span class="stat-label">答對題數</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value">${totalQuestions}</span>
+                                <span class="stat-label">總題數</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value">${completionTimeFormatted}</span>
+                                <span class="stat-label">完成時間</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value">+${score}</span>
+                                <span class="stat-label">獲得分數</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="analysis-achievements-card card">
-                    <h3><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px; color: #f59e0b;"><path d="M12 17.8 5.8 21 7 14.1 2 9.3l7-1L12 2l3 6.3 7 1-5 4.8 1.2 6.9-6.2-3.2Z"></path></svg> 我的成就</h3>
-                    <div class="achievement-item">
-                        <div class="achievement-icon">
-                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12.68,6.34C11.9,4.9,10.29,4.5,9.22,5.29S7.53,7.21,8.32,8.28c.48.65,1.18,1.06,1.93,1.16v1.94c-1.33.2-2.33,1.33-2.33,2.62,0,1.47,1.19,2.67,2.67,2.67s2.67-1.19,2.67-2.67c0-1.29-1-2.42-2.33-2.62V9.32c1.73-.53,2.58-2.31,2.05-3.98Z M17,2H7C4.79,2,3,3.79,3,6v10c0,1.04.42,2,1.17,2.65l1.45-1.24C5.25,17.06,5,16.55,5,16V8c0-1.3.84-2.4,2-2.82V16c0,2.21,1.79,4,4,4s4-1.79,4-4V5.18c1.16.41,2,1.51,2,2.82v8c0,.55-.25,1.06-.62,1.41l1.45,1.24C19.58,18,20,17.04,20,16V6c0-2.21-1.79-4-4-4Z"></path></svg>
-                        </div>
-                        <div class="achievement-text">
-                            <h4>初試啼聲</h4>
-                            <p>完成您的第一次測驗！</p>
+                    <div class="analysis-achievements-card card">
+                        <h3><span style="margin-right: 8px; vertical-align: middle;">⭐</span>我的成就</h3>
+                        <div class="achievement-item">
+                            <div class="achievement-icon">
+                                🏆
+                            </div>
+                            <div class="achievement-text">
+                                <h4>初試啼聲</h4>
+                                <p>完成您的第一次測驗！</p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
         `;
     
         const reviewHTML = renderAnswerReview(questions);
-        return reportHTML + reviewHTML;
+
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 1rem 1rem;">
+                <h3 class="section-title" style="margin: 0; border: none; font-size: 1.25rem;">作答紀錄詳情</h3>
+                <button id="print-attempt-btn" class="btn btn-secondary">
+                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                   列印此報告
+                </button>
+            </div>
+            <div id="printable-attempt-report">
+                ${summaryHTML}
+                ${reviewHTML}
+            </div>
+        `;
     }
 
     function renderAnswerReview(questions) {
@@ -1162,11 +1162,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             if (isCorrectAnswer) {
                                 optionClass = 'correct-answer';
-                                icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>`;
-                            }
-                            if (isUserAnswer && !isCorrectAnswer) {
+                                icon = `<span class="review-option-icon">✔</span>`;
+                            } else if (isUserAnswer) {
                                 optionClass = 'user-selected';
-                                icon = `<svg class="review-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"></path></svg>`;
+                                icon = `<span class="review-option-icon">✖</span>`;
                             }
 
                             return `
@@ -1188,6 +1187,91 @@ document.addEventListener('DOMContentLoaded', () => {
         
         reviewHtml += `</div>`;
         return reviewHtml;
+    }
+
+    function handlePrintQuestions() {
+        const { filteredQuestions, filters } = state;
+        if (filteredQuestions.length === 0) {
+            alert('沒有可列印的題目。');
+            return;
+        }
+    
+        const btn = document.getElementById('print-questions-btn');
+        const originalBtnHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<div class="loading"></div> 準備列印...';
+    
+        let printContainer = document.getElementById('print-only-container');
+        if (!printContainer) {
+            printContainer = document.createElement('div');
+            printContainer.id = 'print-only-container';
+            document.body.appendChild(printContainer);
+        }
+        
+        let title = '考題列表';
+        if (filters.area) {
+            title = [filters.area, filters.subject, filters.year, filters.examType].filter(Boolean).join(' - ');
+        }
+        
+        let contentHtml = `<div style="padding: 20px; margin: 0;"><h1 style="font-size: 20px; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 16px;">${title}</h1>`;
+        
+        filteredQuestions.forEach((q, index) => {
+            contentHtml += `
+                <div class="print-question-item" style="margin-bottom: 16px;">
+                    <p style="font-size: 14px; font-weight: 600; margin-bottom: 8px; line-height: 1.5;">${index + 1}. ${q.content}</p>
+                    <ol style="list-style-type: upper-alpha; padding-left: 20px; margin: 0; font-size: 13px;">
+                        ${q.options.map((opt, i) => `<li style="margin-bottom: 4px; line-height: 1.5; ${q.answer === i ? 'font-weight: bold; color: #10B981;' : ''}">${opt}</li>`).join('')}
+                    </ol>
+                    ${q.explanation ? `<div style="font-size: 13px; margin-top: 8px; padding: 8px; background-color: #f3f4f6; border-radius: 4px; border: 1px solid #e5e7eb; line-height: 1.6;"><strong>詳解：</strong> ${q.explanation.replace(/\n/g, '<br>')}</div>` : ''}
+                </div>
+            `;
+        });
+        contentHtml += `</div>`;
+        printContainer.innerHTML = contentHtml;
+    
+        setTimeout(() => {
+            window.print();
+            btn.disabled = false;
+            btn.innerHTML = originalBtnHTML;
+        }, 100);
+    }
+    
+    function handlePrintAttempt(attempt) {
+        if (!attempt) return;
+        
+        const printButton = document.getElementById('print-attempt-btn');
+        const originalBtnHTML = printButton ? printButton.innerHTML : '';
+        if(printButton) {
+            printButton.disabled = true;
+            printButton.innerHTML = '<div class="loading"></div> 準備列印...';
+        }
+    
+        const sourceElement = document.getElementById('printable-attempt-report');
+        if (!sourceElement) {
+            if(printButton) {
+                printButton.disabled = false;
+                printButton.innerHTML = originalBtnHTML;
+            }
+            alert('找不到可列印的報告內容。');
+            return;
+        }
+    
+        let printContainer = document.getElementById('print-only-container');
+        if (!printContainer) {
+            printContainer = document.createElement('div');
+            printContainer.id = 'print-only-container';
+            document.body.appendChild(printContainer);
+        }
+    
+        printContainer.innerHTML = sourceElement.innerHTML;
+    
+        setTimeout(() => {
+            window.print();
+            if(printButton) {
+                printButton.disabled = false;
+                printButton.innerHTML = originalBtnHTML;
+            }
+        }, 100);
     }
 
 });

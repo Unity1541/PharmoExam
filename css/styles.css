@@ -596,19 +596,42 @@ main { flex: 1; padding: 2rem; max-width: 1200px; margin: 0 auto; width: 100%; }
 /* Analysis Report Styles */
 .analysis-container { max-width: 1000px; margin: 0 auto; }
 .analysis-header { text-align: center; margin-bottom: 2rem; }
-.analysis-header .analysis-icon-container { background-color: #DBEAFE; padding: 12px; border-radius: 12px; display: inline-block; margin-bottom: 1rem; }
-.analysis-header .analysis-icon-container svg rect { fill: var(--primary-color); }
+.analysis-header .analysis-icon-container { background-color: var(--primary-color); width: 48px; height: 48px; border-radius: 12px; display: inline-block; margin-bottom: 1rem; }
 .analysis-header h2 { font-size: 2rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; }
 .analysis-header p { color: var(--text-secondary); max-width: 450px; margin: 0 auto; }
 .analysis-main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
 .analysis-score-card { text-align: center; background: white; padding: 1.5rem; border-radius: 0.75rem; }
-.progress-circle { position: relative; width: 200px; height: 200px; margin: 0 auto 1rem; }
-.progress-ring { transform: rotate(-90deg); }
-.progress-ring-bg, .progress-ring-track-red, .progress-ring-track-green { fill: transparent; stroke-width: 12; stroke-linecap: round; }
-.progress-ring-bg { stroke: #e5e7eb; }
-.progress-ring-track-red { stroke: var(--danger-color); }
-.progress-ring-track-green { stroke: var(--success-color); }
-.progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2.5rem; font-weight: 800; color: var(--text-primary); }
+/* New Simple Score Display to replace SVG circle */
+.simple-score-display {
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 12px solid #e5e7eb;
+    box-sizing: border-box;
+}
+.simple-score-display.pass {
+    border-color: var(--success-color);
+}
+.simple-score-display.fail {
+    border-color: var(--danger-color);
+}
+.simple-score-display .score-value {
+    font-size: 4rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text-primary);
+}
+.simple-score-display .score-unit {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
 .analysis-exam-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; }
 .analysis-stats { display: flex; justify-content: space-around; padding: 0 1rem; }
 .stat-item { text-align: center; }
@@ -617,7 +640,7 @@ main { flex: 1; padding: 2rem; max-width: 1200px; margin: 0 auto; width: 100%; }
 .analysis-achievements-card { background: white; padding: 1.5rem; border-radius: 0.75rem; }
 .analysis-achievements-card h3 { display: flex; align-items: center; font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; }
 .achievement-item { display: flex; align-items: center; gap: 1rem; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e5e7eb; }
-.achievement-icon { background: var(--primary-color); color: white; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.achievement-icon { background: var(--primary-color); color: white; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 24px; }
 .achievement-text h4 { font-weight: 600; color: var(--text-primary); }
 .achievement-text p { font-size: 0.875rem; color: var(--text-secondary); }
 .analysis-details-section { margin-top: 2rem; }
@@ -631,7 +654,17 @@ main { flex: 1; padding: 2rem; max-width: 1200px; margin: 0 auto; width: 100%; }
 .review-question-item.incorrect .review-question-number { background-color: var(--danger-color); }
 .review-options-list { margin-left: 3rem; display: flex; flex-direction: column; gap: 0.75rem; }
 .review-option { padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.75rem; background: #f8f9fa; }
-.review-option-icon { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
+.review-option-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+    line-height: 1;
+}
 .review-option .review-option-icon { color: #9CA3AF; }
 .review-option.user-selected { background-color: #FEF2F2; border-color: #FCA5A5; }
 .review-option.user-selected .review-option-icon { color: var(--danger-color); }
@@ -774,4 +807,55 @@ main { flex: 1; padding: 2rem; max-width: 1200px; margin: 0 auto; width: 100%; }
     .exam-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
     .uploader-steps { grid-template-columns: 1fr; gap: 1.5rem; }
     .uploader-step p { min-height: auto; }
+}
+
+/* Print-Specific Styles */
+#print-only-container {
+    display: none; /* Hidden in normal browser view */
+}
+
+@media print {
+    /* Hide everything except the print container */
+    body > *:not(#print-only-container) {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Make the print container visible and style it */
+    #print-only-container {
+        display: block !important;
+        visibility: visible !important;
+        position: static;
+        font-family: 'Inter', 'Noto Sans TC', sans-serif;
+        color: #111827;
+        background: white;
+    }
+    
+    /* Ensure no margins or padding on the body for print */
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Fine-tune printed content */
+    .analysis-container {
+        max-width: 100% !important;
+    }
+    .card, .analysis-score-card, .analysis-achievements-card, .review-question-item, .answer-review-title {
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+    }
+    .analysis-main-grid {
+        grid-template-columns: 1fr !important; /* Stack score card and achievements */
+    }
+
+    /* Prevent content from being split across pages */
+    .review-question-item, .print-question-item {
+        page-break-inside: avoid;
+    }
+
+    /* Hide any buttons that might have been cloned into the print container */
+    #print-only-container button, #print-only-container .btn {
+        display: none !important;
+    }
 }
