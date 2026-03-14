@@ -568,7 +568,9 @@ document.addEventListener("DOMContentLoaded", () => {
         ? "vocab"
         : selectedExamType === "文法練習"
           ? "grammar"
-          : "reading";
+          : selectedExamType === "手寫題目"
+            ? "handwritten"
+            : "reading";
     const completionTimeInSeconds = Math.floor((Date.now() - startTime) / 1000);
 
     const userRecord = {

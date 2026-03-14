@@ -1654,29 +1654,85 @@ main {
 
 .handwritten-input {
   width: 100%;
-  padding: 1rem;
+  padding: 1.5rem;
   border: 2px solid var(--border-color);
   border-radius: 8px;
-  font-size: 1rem;
-  line-height: 1.6;
-  font-family: "Inter", "Noto Sans TC", monospace;
-  background: rgba(255, 255, 255, 0.9);
+  font-size: 1.1rem;
+  line-height: 2rem;
+  font-family: inherit;
+  background-color: #fcfcfc;
+  background-image: linear-gradient(#e5e7eb 1px, transparent 1px);
+  background-size: 100% 2rem;
+  background-attachment: local;
   color: var(--text-primary);
   resize: vertical;
-  min-height: 120px;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+  min-height: 200px;
+  text-align: left; /* Force left alignment */
+  transition: all 0.2s ease;
 }
 
 .handwritten-input:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-  background: white;
+  background-color: white;
 }
 
 .handwritten-input::placeholder {
   color: var(--text-secondary);
   font-style: italic;
+  opacity: 0.5;
+}
+
+.handwritten-answer-display {
+  background: #fdfdfd;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border-left: 4px solid var(--primary-color);
+  margin: 1rem 0;
+  white-space: pre-wrap;
+  color: var(--text-primary);
+  line-height: 2rem;
+  font-size: 1.1rem;
+  text-align: left; /* Force left alignment */
+  background-image: linear-gradient(#e5e7eb 1px, transparent 1px);
+  background-size: 100% 2rem;
+  background-attachment: local;
+}
+
+.pending-grade-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0.5rem 0;
+}
+
+.grading-section {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  background: #f1f5f9;
+  border-radius: 12px;
+}
+
+.grading-section label {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.grade-input {
+  width: 100px !important;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--primary-color);
 }

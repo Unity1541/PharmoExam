@@ -583,8 +583,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div class="question-item-details ${expandedQuestionId === q.id ? "expanded" : ""}" style="display: ${expandedQuestionId === q.id ? "block" : "none"};">
                         ${
                           q.area === "手寫題目"
-                            ? `<div style="padding: 1rem; background-color: #f9fafb; border-radius: 0.5rem; margin-bottom: 1rem;">
-                                <strong>手寫題目類型：</strong>學生需要手寫作答
+                            ? `<div style="padding: 1rem; background-color: #f9fafb; border-radius: 0.5rem; border-left: 4px solid var(--primary-color); margin-bottom: 1rem;">
+                                <strong>測驗類型：</strong>手寫作答題目<br>
+                                <strong>作答時限：</strong>${q.timeLimit || 10} 分鐘
                             </div>`
                             : `<ol style="list-style-type: upper-alpha; padding-left: 20px;">
                                 ${q.options
@@ -872,16 +873,27 @@ document.addEventListener("DOMContentLoaded", () => {
       .getElementById("print-questions-btn")
       ?.addEventListener("click", handlePrintQuestions);
 
-    // Grading button
+    // Grading logic
     document.addEventListener("click", (e) => {
       if (e.target.classList.contains("save-grade-btn")) {
         const questionId = e.target.dataset.questionId;
         const gradeInput = document.getElementById(`grade-${questionId}`);
         const grade = parseInt(gradeInput.value, 10);
         if (grade >= 0 && grade <= 100) {
-          handleSaveGrade(questionId, grade);
+          handleSaveGrade(questionId, grade, true); // true for showing alert
         } else {
           alert("請輸入有效的評分 (0-100)。");
+        }
+      }
+    });
+
+    // Auto-save grading on input change
+    document.addEventListener("change", (e) => {
+      if (e.target.classList.contains("grade-input")) {
+        const questionId = e.target.dataset.questionId;
+        const grade = parseInt(e.target.value, 10);
+        if (grade >= 0 && grade <= 100) {
+          handleSaveGrade(questionId, grade, false); // false for no alert
         }
       }
     });
@@ -932,6 +944,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     state.selectedUploadArea = area;
 
+    const isHandwritten = area === "手寫題目";
+
     const examples = {
       單字測驗: [
         {
@@ -963,17 +977,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (area) {
       if (exampleCode) {
-        const exampleString = JSON.stringify(examples[area] || [], null, 2);
-        exampleCode.textContent = exampleString;
-
-        if (
-          !questionsInput.value.trim() ||
-          Object.values(examples).some(
-            (ex) => JSON.stringify(ex, null, 2) === questionsInput.value.trim(),
-          )
-        ) {
-          questionsInput.value = exampleString;
+        if (isHandwritten) {
+          exampleCode.textContent = "題目一：請寫出一篇關於環境保護的英文短文。\n題目二：描述你最喜歡的一個旅遊地點。";
+        } else {
+          const exampleString = JSON.stringify(examples[area] || [], null, 2);
+          exampleCode.textContent = exampleString;
         }
+
+        const currentVal = questionsInput.value.trim();
+        const isDefault = !currentVal || Object.values(examples).some(ex => JSON.stringify(ex, null, 2) === currentVal) || currentVal.includes("題目一：");
+        
+        if (isDefault) {
+          if (isHandwritten) {
+            questionsInput.value = "題目一：請寫出一篇關於環境保護的英文短文。\n題目二：描述你最喜歡的一個旅遊地點。";
+            questionsInput.placeholder = "請在此每行輸入一個題目內容...";
+          } else {
+            questionsInput.value = JSON.stringify(examples[area] || [], null, 2);
+            questionsInput.placeholder = "請在此處貼上您的題目 JSON...";
+          }
+        }
+      }
+
+      const description = document.querySelector("#batch-upload-section .step-description");
+      if (description) {
+        description.textContent = isHandwritten 
+            ? "將題目內容按行輸入，每一行將被視為一個新的手寫題目。" 
+            : "將 JSON 格式的題目批次上傳至特定測驗類型。";
       }
 
       if (dataSection.style.display === "none") {
@@ -999,6 +1028,27 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const isHandwritten = state.selectedUploadArea === "手寫題目";
+
+    if (isHandwritten) {
+      // Plain text parsing for handwritten questions
+      const lines = inputText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length === 0) {
+        jsonPreview.innerHTML = `<code style="color: var(--danger-color);">錯誤：未偵測到任何題目。</code>`;
+        showUploadStatus("錯誤：請至少輸入一個題目。", "error");
+        return;
+      }
+      state.validatedQuestions = lines.map(line => ({
+        content: line,
+        area: "手寫題目"
+      }));
+      jsonPreview.innerHTML = `<code>${JSON.stringify(state.validatedQuestions, null, 2)}</code>`;
+      uploadBtn.disabled = false;
+      showUploadStatus(`成功驗證 ${state.validatedQuestions.length} 個手寫題目，可以上傳。`, "success");
+      return;
+    }
+
+    // Standard JSON parsing for MC questions
     let parsedData;
     try {
       parsedData = JSON.parse(inputText);
@@ -1084,10 +1134,16 @@ document.addEventListener("DOMContentLoaded", () => {
           subject: "英文",
           examType: state.selectedUploadArea,
           content: question.content,
-          options: question.options,
-          answer: question.answer,
           explanation: question.explanation || "",
         };
+
+        if (state.selectedUploadArea !== "手寫題目") {
+          finalQuestion.options = question.options;
+          finalQuestion.answer = question.answer;
+        } else {
+          finalQuestion.timeLimit = 10; // Default time limit
+        }
+
         batch.set(docRef, finalQuestion);
       });
 
@@ -1521,14 +1577,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function handleSaveGrade(questionId, grade) {
+  async function handleSaveGrade(questionId, grade, showAlert = true) {
     if (!state.viewingAttempt) return;
+
+    const statusEl = document.getElementById(`grade-status-${questionId}`);
+    if (statusEl) {
+      statusEl.textContent = "儲存中...";
+      statusEl.style.display = "inline";
+      statusEl.style.color = "var(--text-secondary)";
+    }
 
     try {
       const attemptRef = examAttemptsCollection.doc(state.viewingAttempt.id);
       const attemptDoc = await attemptRef.get();
       if (!attemptDoc.exists) {
-        alert("找不到考試記錄。");
+        if (showAlert) alert("找不到考試記錄。");
         return;
       }
 
@@ -1540,12 +1603,11 @@ document.addEventListener("DOMContentLoaded", () => {
         return q;
       });
 
-      // Recalculate total score for handwritten questions
+      // Recalculate total score
       const hasHandwrittenQuestions = updatedQuestions.some(q => q.area === "手寫題目");
       let totalScore = 0;
 
       if (hasHandwrittenQuestions) {
-        // For mixed exams with handwritten questions, calculate score based on question count
         const multipleChoiceQuestions = updatedQuestions.filter(q => q.area !== "手寫題目");
         const handwrittenQuestions = updatedQuestions.filter(q => q.area === "手寫題目");
 
@@ -1559,7 +1621,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         totalScore = Math.round(((mcScore + hwScore) / updatedQuestions.length) * 100);
       } else {
-        // Pure multiple choice exam
         const correctCount = updatedQuestions.filter(q => q.userAnswer === q.answer).length;
         totalScore = Math.round((correctCount / updatedQuestions.length) * 100);
       }
@@ -1569,19 +1630,29 @@ document.addEventListener("DOMContentLoaded", () => {
         score: totalScore
       });
 
-      // Update local state
-      state.viewingAttempt = {
-        ...state.viewingAttempt,
-        questions: updatedQuestions,
-        score: totalScore
-      };
+      // Update local state without re-rendering everything to avoid jumping
+      state.viewingAttempt.questions = updatedQuestions;
+      state.viewingAttempt.score = totalScore;
 
-      alert("評分已儲存！");
-      render(); // Re-render to show updated grades
+      if (statusEl) {
+        statusEl.textContent = "已儲存！";
+        statusEl.style.color = "var(--success-color)";
+        setTimeout(() => {
+          if (statusEl) statusEl.style.display = "none";
+        }, 2000);
+      }
+
+      if (showAlert) alert("評分已儲存！");
+      // Optional: Refresh the attempt list in the background
+      loadExamAttempts();
 
     } catch (error) {
       console.error("Error saving grade:", error);
-      alert("儲存評分時發生錯誤。");
+      if (statusEl) {
+        statusEl.textContent = "儲存失敗";
+        statusEl.style.color = "var(--danger-color)";
+      }
+      if (showAlert) alert("儲存評分時發生錯誤。");
     }
   }
   async function handleSaveCountdown() {
@@ -1785,8 +1856,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         </div>
                         <div class="grading-section">
                             <label for="grade-${q.id}">評分 (0-100分)：</label>
-                            <input type="number" id="grade-${q.id}" min="0" max="100" value="${q.grade || ''}" class="grade-input">
+                            <input type="number" id="grade-${q.id}" min="0" max="100" value="${q.grade || ''}" class="grade-input" data-question-id="${q.id}">
                             <button class="btn btn-primary save-grade-btn" data-question-id="${q.id}">儲存評分</button>
+                            <span id="grade-status-${q.id}" style="margin-left: 0.5rem; font-size: 0.85rem; color: var(--success-color); display: none;">已儲存</span>
                         </div>
                     </div>
                     ${
