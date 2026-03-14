@@ -1,10 +1,9 @@
+document.addEventListener("DOMContentLoaded", () => {
+  const adminContainer = document.getElementById("admin-container");
 
-document.addEventListener('DOMContentLoaded', () => {
-    const adminContainer = document.getElementById('admin-container');
-
-    // Super-gatekeeper: Check for initialization errors first.
-    if (window.firebaseInitializationError) {
-        adminContainer.innerHTML = `
+  // Super-gatekeeper: Check for initialization errors first.
+  if (window.firebaseInitializationError) {
+    adminContainer.innerHTML = `
             <div class="login-container fade-in" style="max-width: 650px;">
                  <div class="login-header">
                     <svg class="login-icon" style="color: var(--danger-color);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
@@ -21,12 +20,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <a href="index.html" class="link">返回首頁</a>
                 </div>
             </div>`;
-        return;
-    }
+    return;
+  }
 
-    // Gatekeeper: Check if Firebase is configured before doing anything.
-    if (!isFirebaseConfigured()) {
-        adminContainer.innerHTML = `
+  // Gatekeeper: Check if Firebase is configured before doing anything.
+  if (!isFirebaseConfigured()) {
+    adminContainer.innerHTML = `
             <div class="login-container fade-in" style="max-width: 600px;">
                 <div class="login-header">
                     <svg class="login-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
@@ -58,153 +57,196 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
-        // Stop all further execution
-        return;
-    }
-    
-    // --- Firebase is configured, proceed with normal admin panel logic ---
+    // Stop all further execution
+    return;
+  }
 
-    const questionsCollection = db.collection('questions');
-    const leaderboardCollection = db.collection('leaderboard');
-    const examAttemptsCollection = db.collection('examAttempts');
-    const announcementsCollection = db.collection('announcements');
-    const settingsCollection = db.collection('settings');
+  // --- Firebase is configured, proceed with normal admin panel logic ---
 
-    const examAreas = ['單字測驗', '文法練習', '閱讀測驗'];
-    const availableYears = [];
-    const availableSubjects = ['英文'];
-    
-    const nationalExamTypes = [];
-    const quizExamType = '綜合測驗';
+  const questionsCollection = db.collection("questions");
+  const leaderboardCollection = db.collection("leaderboard");
+  const examAttemptsCollection = db.collection("examAttempts");
+  const announcementsCollection = db.collection("announcements");
+  const settingsCollection = db.collection("settings");
+  const questionSuggestionsCollection = db.collection("questionSuggestions");
 
-    // Chapters for Practice Area
-    const practiceChapters = {
-        '英文': ['單字', '文法', '閱讀測驗']
-    };
-    
-    const allExamTypes = examAreas;
+  const examAreas = ["單字測驗", "文法練習", "閱讀測驗", "手寫題目"];
+  const availableYears = [];
+  const availableSubjects = ["英文"];
 
-    let state = {
+  const nationalExamTypes = [];
+  const quizExamType = "綜合測驗";
+
+  // Chapters for Practice Area
+  const practiceChapters = {
+    英文: ["單字", "文法", "閱讀測驗"],
+  };
+
+  const allExamTypes = examAreas;
+
+  let state = {
+    isLoggedIn: false,
+    user: null,
+    questions: [],
+    filteredQuestions: [],
+    loading: false,
+    initialQuestionLoad: true, // New state to track if a search has been performed
+    editingQuestionId: null,
+    showForm: false,
+    filters: {
+      searchTerm: "",
+      area: "",
+      year: "",
+      subject: "",
+      examType: "",
+    },
+    expandedQuestionId: null,
+    selectedQuestionIds: new Set(),
+    examAttempts: [],
+    filteredExamAttempts: [],
+    loadingAttempts: false,
+    viewingAttempt: null,
+    announcements: [],
+    loadingAnnouncements: false,
+    editingAnnouncementId: null,
+    examCountdownDate: "",
+    // Uploader state variables
+    validatedQuestions: [],
+    selectedUploadArea: "",
+    // Suggestions state
+    suggestions: [],
+    loadingSuggestions: false,
+  };
+
+  function setState(newState) {
+    Object.assign(state, newState);
+    render();
+  }
+
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      document.body.classList.add("admin");
+      setState({
+        isLoggedIn: true,
+        user,
+        loading: false,
+        loadingAttempts: true,
+        loadingAnnouncements: true,
+        initialQuestionLoad: true,
+        questions: [],
+        filteredQuestions: [],
+      });
+      loadExamAttempts();
+      loadAnnouncements();
+      loadSuggestions();
+      loadCountdownDate();
+    } else {
+      document.body.classList.remove("admin");
+      setState({
         isLoggedIn: false,
         user: null,
         questions: [],
         filteredQuestions: [],
-        loading: false,
-        initialQuestionLoad: true, // New state to track if a search has been performed
-        editingQuestionId: null,
-        showForm: false,
-        filters: {
-            searchTerm: '',
-            area: '',
-            year: '',
-            subject: '',
-            examType: '',
-        },
-        expandedQuestionId: null,
-        selectedQuestionIds: new Set(),
         examAttempts: [],
         filteredExamAttempts: [],
+      });
+    }
+  });
+
+  async function loadExamAttempts() {
+    try {
+      const snapshot = await examAttemptsCollection
+        .orderBy("date", "desc")
+        .get();
+      const attempts = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setState({
+        examAttempts: attempts,
+        filteredExamAttempts: attempts,
         loadingAttempts: false,
-        viewingAttempt: null,
-        announcements: [],
-        loadingAnnouncements: false,
-        editingAnnouncementId: null,
-        examCountdownDate: '',
-        // Uploader state variables
-        validatedQuestions: [],
-        selectedUploadArea: '',
-    };
-
-    function setState(newState) {
-        Object.assign(state, newState);
-        render();
+      });
+    } catch (error) {
+      console.error("Error loading exam attempts:", error);
+      alert("無法載入作答紀錄。");
+      setState({ loadingAttempts: false });
     }
+  }
 
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            document.body.classList.add('admin');
-            setState({ 
-                isLoggedIn: true, 
-                user, 
-                loading: false, 
-                loadingAttempts: true, 
-                loadingAnnouncements: true, 
-                initialQuestionLoad: true, 
-                questions: [], 
-                filteredQuestions: [] 
-            });
-            loadExamAttempts();
-            loadAnnouncements();
-            loadCountdownDate();
-        } else {
-            document.body.classList.remove('admin');
-            setState({ isLoggedIn: false, user: null, questions: [], filteredQuestions: [], examAttempts: [], filteredExamAttempts: [] });
-        }
-    });
-    
-    async function loadExamAttempts() {
-        try {
-            const snapshot = await examAttemptsCollection.orderBy('date', 'desc').get();
-            const attempts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setState({ examAttempts: attempts, filteredExamAttempts: attempts, loadingAttempts: false });
-        } catch (error) {
-            console.error("Error loading exam attempts:", error);
-            alert('無法載入作答紀錄。');
-            setState({ loadingAttempts: false });
-        }
+  async function loadAnnouncements() {
+    try {
+      const snapshot = await announcementsCollection
+        .orderBy("timestamp", "desc")
+        .get();
+      const announcements = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setState({ announcements, loadingAnnouncements: false });
+    } catch (error) {
+      console.error("Error loading announcements:", error);
+      setState({ loadingAnnouncements: false });
     }
+  }
 
-    async function loadAnnouncements() {
-        try {
-            const snapshot = await announcementsCollection.orderBy('timestamp', 'desc').get();
-            const announcements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setState({ announcements, loadingAnnouncements: false });
-        } catch (error) {
-            console.error("Error loading announcements:", error);
-            setState({ loadingAnnouncements: false });
-        }
+  async function loadSuggestions() {
+    try {
+      const snapshot = await questionSuggestionsCollection
+        .orderBy("submittedAt", "desc")
+        .get();
+      const suggestions = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setState({ suggestions, loadingSuggestions: false });
+    } catch (error) {
+      console.error("Error loading suggestions:", error);
+      setState({ loadingSuggestions: false });
     }
+  }
 
-    async function loadCountdownDate() {
-        try {
-            const doc = await settingsCollection.doc('mainConfig').get();
-            if (doc.exists) {
-                setState({ examCountdownDate: doc.data().examDate || '' });
-            }
-        } catch (error) {
-            console.error("Error loading countdown date:", error);
-        }
+  async function loadCountdownDate() {
+    try {
+      const doc = await settingsCollection.doc("mainConfig").get();
+      if (doc.exists) {
+        setState({ examCountdownDate: doc.data().examDate || "" });
+      }
+    } catch (error) {
+      console.error("Error loading countdown date:", error);
     }
+  }
 
-
-    function render() {
-        if (!state.isLoggedIn) {
-            renderLoginForm();
-        } else {
-            renderAdminPanel();
-        }
-        attachGeneralListeners();
+  function render() {
+    if (!state.isLoggedIn) {
+      renderLoginForm();
+    } else {
+      renderAdminPanel();
     }
-    
-    function attachGeneralListeners() {
-        document.getElementById('modal-close-btn')?.addEventListener('click', () => {
-            const reviewModal = document.getElementById('review-modal');
-            if (reviewModal) reviewModal.style.display = 'none';
-            setState({ viewingAttempt: null })
-        });
-        const reviewModal = document.getElementById('review-modal');
-        if (reviewModal) {
-            reviewModal.addEventListener('click', (e) => {
-                if (e.target === reviewModal) {
-                    reviewModal.style.display = 'none';
-                    setState({ viewingAttempt: null });
-                }
-            });
-        }
-    }
+    attachGeneralListeners();
+  }
 
-    function renderLoginForm() {
-        adminContainer.innerHTML = `
+  function attachGeneralListeners() {
+    document
+      .getElementById("modal-close-btn")
+      ?.addEventListener("click", () => {
+        const reviewModal = document.getElementById("review-modal");
+        if (reviewModal) reviewModal.style.display = "none";
+        setState({ viewingAttempt: null });
+      });
+    const reviewModal = document.getElementById("review-modal");
+    if (reviewModal) {
+      reviewModal.addEventListener("click", (e) => {
+        if (e.target === reviewModal) {
+          reviewModal.style.display = "none";
+          setState({ viewingAttempt: null });
+        }
+      });
+    }
+  }
+
+  function renderLoginForm() {
+    adminContainer.innerHTML = `
             <div class="login-container card fade-in">
                 <div class="login-header">
                     <svg class="login-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -235,21 +277,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
-        attachLoginListeners();
-    }
-    
-    function renderAdminPanel() {
-        const { loading, showForm, editingQuestionId, filters, user, viewingAttempt, loadingAttempts, selectedQuestionIds, initialQuestionLoad, filteredQuestions } = state;
-        const editingQuestion = editingQuestionId ? state.questions.find(q => q.id === editingQuestionId) : null;
-        const hasSelection = selectedQuestionIds.size > 0;
-        const hasFilteredQuestions = !initialQuestionLoad && filteredQuestions.length > 0;
-        
-        let modalContent = '';
-        if (viewingAttempt) {
-            modalContent = renderAnalysisReport(viewingAttempt);
-        }
+    attachLoginListeners();
+  }
 
-        adminContainer.innerHTML = `
+  function renderAdminPanel() {
+    const {
+      loading,
+      showForm,
+      editingQuestionId,
+      filters,
+      user,
+      viewingAttempt,
+      loadingAttempts,
+      selectedQuestionIds,
+      initialQuestionLoad,
+      filteredQuestions,
+    } = state;
+    const editingQuestion = editingQuestionId
+      ? state.questions.find((q) => q.id === editingQuestionId)
+      : null;
+    const hasSelection = selectedQuestionIds.size > 0;
+    const hasFilteredQuestions =
+      !initialQuestionLoad && filteredQuestions.length > 0;
+
+    let modalContent = "";
+    if (viewingAttempt) {
+      modalContent = renderAnalysisReport(viewingAttempt);
+    }
+
+    adminContainer.innerHTML = `
             <div class="admin-panel fade-in">
                 <header class="admin-header">
                     <h2>試題管理</h2>
@@ -265,58 +321,70 @@ document.addEventListener('DOMContentLoaded', () => {
                 <section class="admin-controls">
                     <button id="add-question-btn" class="btn btn-primary">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        ${showForm && !editingQuestionId ? '取消新增' : '新增題目'}
+                        ${showForm && !editingQuestionId ? "取消新增" : "新增題目"}
                     </button>
-                     <button id="delete-selected-btn" class="btn btn-danger" ${!hasSelection ? 'disabled' : ''}>
+                     <button id="delete-selected-btn" class="btn btn-danger" ${!hasSelection ? "disabled" : ""}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                         刪除選取 (${selectedQuestionIds.size})
                     </button>
-                     <button id="print-questions-btn" class="btn btn-secondary" ${!hasFilteredQuestions ? 'disabled' : ''}>
+                     <button id="print-questions-btn" class="btn btn-secondary" ${!hasFilteredQuestions ? "disabled" : ""}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
                         列印考題
                     </button>
                     <input type="search" id="search-input" placeholder="搜尋題目內容..." value="${filters.searchTerm}">
                     <select id="area-filter">
                         <option value="">所有測驗類型</option>
-                        ${examAreas.map(a => `<option value="${a}" ${filters.area === a ? 'selected' : ''}>${a}</option>`).join('')}
+                        ${examAreas.map((a) => `<option value="${a}" ${filters.area === a ? "selected" : ""}>${a}</option>`).join("")}
                     </select>
                 </section>
 
-                <section id="question-form-container" class="card" style="display: ${showForm ? 'block' : 'none'};">
+                <section id="question-form-container" class="card" style="display: ${showForm ? "block" : "none"};">
                     <form id="question-form">
-                        <h3>${editingQuestionId ? '編輯題目' : '新增題目'}</h3>
+                        <h3>${editingQuestionId ? "編輯題目" : "新增題目"}</h3>
                         <div class="question-form-grid">
                             <div class="form-group">
                                 <label for="form-area">測驗類型</label>
                                 <select id="form-area" required>
-                                    <option value="" disabled ${!editingQuestion ? 'selected' : ''}>-- 請選擇測驗類型 --</option>
-                                    ${examAreas.map(a => `<option value="${a}" ${editingQuestion?.area === a ? 'selected' : ''}>${a}</option>`).join('')}
+                                    <option value="" disabled ${!editingQuestion ? "selected" : ""}>-- 請選擇測驗類型 --</option>
+                                    ${examAreas.map((a) => `<option value="${a}" ${editingQuestion?.area === a ? "selected" : ""}>${a}</option>`).join("")}
                                 </select>
                             </div>
                             <div class="form-group full-width">
                                 <label for="form-content">題目內容</label>
-                                <textarea id="form-content" rows="3" required>${editingQuestion?.content || ''}</textarea>
+                                <textarea id="form-content" rows="3" required>${editingQuestion?.content || ""}</textarea>
                             </div>
-                            <div class="options-group">
-                                ${[0,1,2,3].map(i => `
+                            <div class="options-group" id="options-section" style="display: ${editingQuestion?.area === "手寫題目" ? "none" : "grid"};">
+                                ${[0, 1, 2, 3]
+                                  .map(
+                                    (i) => `
                                 <div class="form-group">
                                     <label for="form-option-${i}">選項 ${i + 1}</label>
-                                    <input type="text" id="form-option-${i}" value="${editingQuestion?.options[i] || ''}" required>
-                                </div>`).join('')}
+                                    <input type="text" id="form-option-${i}" value="${editingQuestion?.options?.[i] || ""}" required>
+                                </div>`,
+                                  )
+                                  .join("")}
                             </div>
-                            <div class="answer-group">
+                            <div class="answer-group" id="answer-section" style="display: ${editingQuestion?.area === "手寫題目" ? "none" : "block"};">
                                 <label>正確答案</label>
                                 <div class="answer-options">
-                                    ${[0,1,2,3].map(i => `
+                                    ${[0, 1, 2, 3]
+                                      .map(
+                                        (i) => `
                                     <label>
-                                        <input type="radio" name="answer" value="${i}" ${editingQuestion?.answer === i ? 'checked' : ''} required>
-                                        選項 ${i+1}
-                                    </label>`).join('')}
+                                        <input type="radio" name="answer" value="${i}" ${editingQuestion?.answer === i ? "checked" : ""} required>
+                                        選項 ${i + 1}
+                                    </label>`,
+                                      )
+                                      .join("")}
                                 </div>
+                            </div>
+                            <div class="form-group" id="time-limit-section" style="display: ${editingQuestion?.area === "手寫題目" ? "block" : "none"};">
+                                <label for="form-time-limit">作答時間限制 (分鐘)</label>
+                                <input type="number" id="form-time-limit" min="1" max="60" value="${editingQuestion?.timeLimit || 10}" placeholder="請輸入作答時間限制">
                             </div>
                             <div class="form-group full-width">
                                 <label for="form-explanation">詳解 (選填)</label>
-                                <textarea id="form-explanation" rows="4" placeholder="請在此輸入題目的詳細解釋...">${editingQuestion?.explanation || ''}</textarea>
+                                <textarea id="form-explanation" rows="4" placeholder="請在此輸入題目的詳細解釋...">${editingQuestion?.explanation || ""}</textarea>
                             </div>
                         </div>
                         <div class="form-actions">
@@ -326,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </button>
                             <button type="submit" class="btn btn-primary">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                                ${editingQuestionId ? '儲存變更' : '建立題目'}
+                                ${editingQuestionId ? "儲存變更" : "建立題目"}
                             </button>
                         </div>
                     </form>
@@ -344,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <label for="uploader-area">測驗類型</label>
                         <select id="uploader-area" class="glass-select" required>
                             <option value="" disabled selected>-- 選擇測驗類型 --</option>
-                            ${examAreas.map(a => `<option value="${a}">${a}</option>`).join('')}
+                            ${examAreas.map((a) => `<option value="${a}">${a}</option>`).join("")}
                         </select>
                     </div>
                     <div id="data-input-section" style="display: none; margin-top: 1rem;">
@@ -387,6 +455,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </section>
 
+                <!-- 題目建議管理 -->
+                <section class="card" style="margin-top: 2rem;">
+                    <h3>題目建議管理</h3>
+                    <p class="step-description" style="margin-bottom: 1rem;">審核用戶提交的題目建議。您可以批准建議將其加入題庫，或拒絕建議。</p>
+                    <div id="suggestions-list-container">
+                        ${state.loadingSuggestions ? '<div class="loading-spinner">載入中...</div>' : renderSuggestionsList()}
+                    </div>
+                </section>
+
                 <section class="admin-section">
                     <h3>系統設定</h3>
                     <div class="form-group">
@@ -400,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <section class="admin-section">
                     <h3>最新公告管理</h3>
                     <form id="announcement-form" class="card" style="margin-bottom: 2rem;">
-                        <h4>${state.editingAnnouncementId ? '編輯公告' : '新增公告'}</h4>
+                        <h4>${state.editingAnnouncementId ? "編輯公告" : "新增公告"}</h4>
                         <div class="form-group">
                             <label for="announcement-title">標題</label>
                             <input type="text" id="announcement-title" required>
@@ -411,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="form-actions" style="justify-content: flex-end;">
                             <button type="button" id="cancel-announcement-edit-btn" class="btn btn-secondary" style="display: none;">取消編輯</button>
-                            <button type="submit" class="btn btn-primary">${state.editingAnnouncementId ? '儲存變更' : '發佈公告'}</button>
+                            <button type="submit" class="btn btn-primary">${state.editingAnnouncementId ? "儲存變更" : "發佈公告"}</button>
                         </div>
                     </form>
                     <div id="announcements-list-admin">
@@ -429,7 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </section>
             </div>
             
-            <div id="review-modal" class="modal-overlay" style="display: ${viewingAttempt ? 'flex' : 'none'};">
+            <div id="review-modal" class="modal-overlay" style="display: ${viewingAttempt ? "flex" : "none"};">
                 <div class="modal-content">
                     <button id="modal-close-btn" class="modal-close">&times;</button>
                     <div id="modal-body">${modalContent}</div>
@@ -437,40 +514,52 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        if (viewingAttempt) {
-            document.getElementById('print-attempt-btn')?.addEventListener('click', () => handlePrintAttempt(viewingAttempt));
-        }
-
-        attachAdminListeners();
+    if (viewingAttempt) {
+      document
+        .getElementById("print-attempt-btn")
+        ?.addEventListener("click", () => handlePrintAttempt(viewingAttempt));
     }
 
-    function renderQuestionList() {
-        const { filteredQuestions, expandedQuestionId, selectedQuestionIds, initialQuestionLoad, loading } = state;
+    attachAdminListeners();
+  }
 
-        if (loading) {
-            return '<div class="loading-spinner">查詢中...</div>';
-        }
+  function renderQuestionList() {
+    const {
+      filteredQuestions,
+      expandedQuestionId,
+      selectedQuestionIds,
+      initialQuestionLoad,
+      loading,
+    } = state;
 
-        if (initialQuestionLoad) {
-            return '<div class="no-questions" style="padding: var(--spacing-8)">請使用上方的篩選器來查詢題目。</div>';
-        }
+    if (loading) {
+      return '<div class="loading-spinner">查詢中...</div>';
+    }
 
-        if (filteredQuestions.length === 0) {
-            return '<div class="no-questions" style="padding: var(--spacing-8)">找不到符合條件的題目。</div>';
-        }
-        
-        const areAllFilteredSelected = filteredQuestions.length > 0 && filteredQuestions.every(q => selectedQuestionIds.has(q.id));
+    if (initialQuestionLoad) {
+      return '<div class="no-questions" style="padding: var(--spacing-8)">請使用上方的篩選器來查詢題目。</div>';
+    }
 
-        return `
+    if (filteredQuestions.length === 0) {
+      return '<div class="no-questions" style="padding: var(--spacing-8)">找不到符合條件的題目。</div>';
+    }
+
+    const areAllFilteredSelected =
+      filteredQuestions.length > 0 &&
+      filteredQuestions.every((q) => selectedQuestionIds.has(q.id));
+
+    return `
             <div class="question-list-actions" style="margin-bottom: 1rem; padding: 0.5rem 1rem; display: flex; align-items: center; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem;">
-                <input type="checkbox" id="select-all-checkbox" style="margin-right: 0.75rem; transform: scale(1.2);" ${areAllFilteredSelected ? 'checked' : ''}>
+                <input type="checkbox" id="select-all-checkbox" style="margin-right: 0.75rem; transform: scale(1.2);" ${areAllFilteredSelected ? "checked" : ""}>
                 <label for="select-all-checkbox" style="font-weight: 500; color: var(--text-secondary);">全選/取消全選目前顯示的 ${filteredQuestions.length} 個題目</label>
             </div>
             <div class="question-list">
-                ${filteredQuestions.map(q => `
-                <div class="question-item" id="q-item-${q.id}" style="${selectedQuestionIds.has(q.id) ? 'background-color: #EFF6FF; border-left-color: #93C5FD;' : ''}">
+                ${filteredQuestions
+                  .map(
+                    (q) => `
+                <div class="question-item" id="q-item-${q.id}" style="${selectedQuestionIds.has(q.id) ? "background-color: #EFF6FF; border-left-color: #93C5FD;" : ""}">
                     <div class="question-item-header">
-                        <input type="checkbox" class="question-checkbox" data-id="${q.id}" ${selectedQuestionIds.has(q.id) ? 'checked' : ''} style="margin-right: 1.25rem; flex-shrink: 0; transform: scale(1.2); cursor: pointer;">
+                        <input type="checkbox" class="question-checkbox" data-id="${q.id}" ${selectedQuestionIds.has(q.id) ? "checked" : ""} style="margin-right: 1.25rem; flex-shrink: 0; transform: scale(1.2); cursor: pointer;">
                         <div style="flex-grow: 1;">
                             <div class="question-item-tags">
                                 <span class="tag">${q.area}</span>
@@ -491,32 +580,49 @@ document.addEventListener('DOMContentLoaded', () => {
                             </button>
                         </div>
                     </div>
-                    <div class="question-item-details ${expandedQuestionId === q.id ? 'expanded' : ''}" style="display: ${expandedQuestionId === q.id ? 'block' : 'none'};">
-                        <ol style="list-style-type: upper-alpha; padding-left: 20px;">
-                            ${q.options.map((opt, i) => `
-                                <li class="${q.answer === i ? 'correct' : ''}">
-                                    ${opt} ${q.answer === i ? '<strong>(正確答案)</strong>' : ''}
-                                </li>
-                            `).join('')}
-                        </ol>
-                        ${q.explanation ? `<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;"><strong>詳解：</strong><br>${q.explanation.replace(/\n/g, '<br>')}</div>` : ''}
+                    <div class="question-item-details ${expandedQuestionId === q.id ? "expanded" : ""}" style="display: ${expandedQuestionId === q.id ? "block" : "none"};">
+                        ${
+                          q.area === "手寫題目"
+                            ? `<div style="padding: 1rem; background-color: #f9fafb; border-radius: 0.5rem; margin-bottom: 1rem;">
+                                <strong>手寫題目類型：</strong>學生需要手寫作答
+                            </div>`
+                            : `<ol style="list-style-type: upper-alpha; padding-left: 20px;">
+                                ${q.options
+                                  .map(
+                                    (opt, i) => `
+                                    <li class="${q.answer === i ? "correct" : ""}">
+                                        ${opt} ${q.answer === i ? "<strong>(正確答案)</strong>" : ""}
+                                    </li>
+                                `,
+                                  )
+                                  .join("")}
+                            </ol>`
+                        }
+                        ${q.explanation ? `<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;"><strong>詳解：</strong><br>${q.explanation.replace(/\n/g, "<br>")}</div>` : ""}
                     </div>
                 </div>
-                `).join('')}
+                `,
+                  )
+                  .join("")}
             </div>
         `;
-    }
-    
-    function renderAttemptList() {
-        const { filteredExamAttempts } = state;
-        if (filteredExamAttempts.length === 0) {
-            return '<div class="no-questions" style="padding: var(--spacing-8)">尚無任何作答紀錄。</div>';
-        }
+  }
 
-        return `
+  function renderAttemptList() {
+    const { filteredExamAttempts } = state;
+    if (filteredExamAttempts.length === 0) {
+      return '<div class="no-questions" style="padding: var(--spacing-8)">尚無任何作答紀錄。</div>';
+    }
+
+    return `
             <div class="attempt-list">
-                ${filteredExamAttempts.map(attempt => {
-                    const attemptDate = attempt.date ? new Date(attempt.date.seconds * 1000).toLocaleString('zh-TW') : 'N/A';
+                ${filteredExamAttempts
+                  .map((attempt) => {
+                    const attemptDate = attempt.date
+                      ? new Date(attempt.date.seconds * 1000).toLocaleString(
+                          "zh-TW",
+                        )
+                      : "N/A";
                     return `
                     <div class="attempt-item">
                         <div class="attempt-item-header">
@@ -537,18 +643,23 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
                     </div>
-                `}).join('')}
+                `;
+                  })
+                  .join("")}
             </div>
         `;
-    }
+  }
 
-    function renderAnnouncementsList() {
-        if (state.announcements.length === 0) {
-            return '<p>尚無公告。</p>';
-        }
-        return state.announcements.map(ann => {
-            const date = ann.timestamp ? new Date(ann.timestamp.seconds * 1000).toLocaleString('zh-TW') : '';
-            return `
+  function renderAnnouncementsList() {
+    if (state.announcements.length === 0) {
+      return "<p>尚無公告。</p>";
+    }
+    return state.announcements
+      .map((ann) => {
+        const date = ann.timestamp
+          ? new Date(ann.timestamp.seconds * 1000).toLocaleString("zh-TW")
+          : "";
+        return `
                 <div class="announcement-admin-item">
                     <div class="announcement-admin-item-content">
                         <h5>${ann.title}</h5>
@@ -564,595 +675,1020 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
-        }).join('');
+      })
+      .join("");
+  }
+
+  function renderSuggestionsList() {
+    if (!state.suggestions || state.suggestions.length === 0) {
+      return "<p>尚無題目建議。</p>";
     }
+    return state.suggestions
+      .map((suggestion) => {
+        const date = suggestion.submittedAt
+          ? new Date(suggestion.submittedAt.seconds * 1000).toLocaleString(
+              "zh-TW",
+            )
+          : "";
+        const statusColor =
+          suggestion.status === "approved"
+            ? "var(--success-color)"
+            : suggestion.status === "rejected"
+              ? "var(--danger-color)"
+              : "var(--warning-color)";
+        const statusText =
+          suggestion.status === "approved"
+            ? "已批准"
+            : suggestion.status === "rejected"
+              ? "已拒絕"
+              : "待審核";
+        return `
+                <div class="suggestion-item" style="border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; background: white;">
+                    <div class="suggestion-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                        <div>
+                            <h4 style="margin: 0; color: var(--text-primary);">${suggestion.submitterName}</h4>
+                            <small style="color: var(--text-secondary);">${date}</small>
+                        </div>
+                        <span style="background: ${statusColor}; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500;">${statusText}</span>
+                    </div>
+                    <div class="suggestion-content" style="margin-bottom: 0.75rem;">
+                        <p><strong>題目內容：</strong>${suggestion.content}</p>
+                        <p><strong>類型：</strong>${suggestion.type}</p>
+                        ${suggestion.notes ? `<p><strong>補充說明：</strong>${suggestion.notes}</p>` : ""}
+                    </div>
+                    ${
+                      suggestion.status === "pending"
+                        ? `
+                    <div class="suggestion-actions" style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-success btn-sm approve-suggestion-btn" data-id="${suggestion.id}" style="padding: 0.375rem 0.75rem; font-size: 0.875rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            批准並加入題庫
+                        </button>
+                        <button class="btn btn-danger btn-sm reject-suggestion-btn" data-id="${suggestion.id}" style="padding: 0.375rem 0.75rem; font-size: 0.875rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            拒絕
+                        </button>
+                    </div>
+                    `
+                        : ""
+                    }
+                </div>
+            `;
+      })
+      .join("");
+  }
 
-    function updateFormFields() {
-        // Obsolete
+  function updateFormFields() {
+    const formArea = document.getElementById("form-area");
+    const optionsSection = document.getElementById("options-section");
+    const answerSection = document.getElementById("answer-section");
+    const timeLimitSection = document.getElementById("time-limit-section");
+    const optionInputs = [0, 1, 2, 3].map((i) =>
+      document.getElementById(`form-option-${i}`),
+    );
+    const answerRadios = document.querySelectorAll('input[name="answer"]');
+
+    if (!formArea || !optionsSection || !answerSection) return;
+
+    const selectedArea = formArea.value;
+
+    if (selectedArea === "手寫題目") {
+      // Hide options and answer sections for handwritten questions
+      optionsSection.style.display = "none";
+      answerSection.style.display = "none";
+      // Show time limit section for handwritten questions
+      if (timeLimitSection) timeLimitSection.style.display = "block";
+
+      // Remove required attribute from option inputs and answer radios
+      optionInputs.forEach((input) => (input.required = false));
+      answerRadios.forEach((radio) => (radio.required = false));
+    } else {
+      // Show options and answer sections for multiple choice questions
+      optionsSection.style.display = "grid";
+      answerSection.style.display = "block";
+      // Hide time limit section for multiple choice questions
+      if (timeLimitSection) timeLimitSection.style.display = "none";
+
+      // Add required attribute to option inputs and answer radios
+      optionInputs.forEach((input) => (input.required = true));
+      answerRadios.forEach((radio) => (radio.required = true));
     }
-    
-    function attachLoginListeners() {
-        const loginBtn = document.getElementById('login-btn');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const errorDiv = document.getElementById('login-error');
+  }
 
-        const performLogin = () => {
-            const email = emailInput.value;
-            const password = passwordInput.value;
-            errorDiv.style.display = 'none';
+  function attachLoginListeners() {
+    const loginBtn = document.getElementById("login-btn");
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const errorDiv = document.getElementById("login-error");
 
-            auth.signInWithEmailAndPassword(email, password)
-                .catch(error => {
-                    console.error("Login failed:", error);
-                    errorDiv.textContent = `登入失敗: ${error.message}`;
-                    errorDiv.style.display = 'block';
-                });
-        };
+    const performLogin = () => {
+      const email = emailInput.value;
+      const password = passwordInput.value;
+      errorDiv.style.display = "none";
 
-        loginBtn.addEventListener('click', performLogin);
-        emailInput.addEventListener('keypress', (e) => e.key === 'Enter' && performLogin());
-        passwordInput.addEventListener('keypress', (e) => e.key === 'Enter' && performLogin());
-    }
+      auth.signInWithEmailAndPassword(email, password).catch((error) => {
+        console.error("Login failed:", error);
+        errorDiv.textContent = `登入失敗: ${error.message}`;
+        errorDiv.style.display = "block";
+      });
+    };
 
-    function attachAdminListeners() {
-        document.getElementById('logout-btn')?.addEventListener('click', () => auth.signOut());
-        document.getElementById('add-question-btn')?.addEventListener('click', toggleAddForm);
-        document.getElementById('cancel-edit-btn')?.addEventListener('click', cancelEdit);
-        document.getElementById('question-form')?.addEventListener('submit', handleFormSubmit);
-        // Filters
-        document.getElementById('search-input')?.addEventListener('input', handleFilterChange);
-        document.getElementById('area-filter')?.addEventListener('change', handleFilterChange);
-        // Form dynamics
-        document.getElementById('form-area')?.addEventListener('change', updateFormFields);
-        document.getElementById('form-subject')?.addEventListener('change', updateFormFields);
+    loginBtn.addEventListener("click", performLogin);
+    emailInput.addEventListener(
+      "keypress",
+      (e) => e.key === "Enter" && performLogin(),
+    );
+    passwordInput.addEventListener(
+      "keypress",
+      (e) => e.key === "Enter" && performLogin(),
+    );
+  }
 
-        document.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', handleEdit));
-        document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', handleDelete));
-        document.querySelectorAll('.expand-btn').forEach(btn => btn.addEventListener('click', handleExpand));
-        document.getElementById('clear-leaderboard-btn')?.addEventListener('click', handleClearLeaderboard);
-        
-        document.querySelectorAll('.question-checkbox').forEach(cb => cb.addEventListener('change', handleQuestionSelectionChange));
-        document.getElementById('select-all-checkbox')?.addEventListener('change', handleSelectAllChange);
-        document.getElementById('delete-selected-btn')?.addEventListener('click', handleDeleteSelected);
-        
-        document.querySelectorAll('.view-attempt-btn').forEach(btn => btn.addEventListener('click', handleViewAttempt));
-        document.querySelectorAll('.delete-attempt-btn').forEach(btn => btn.addEventListener('click', handleDeleteAttempt));
-        document.getElementById('clear-attempts-btn')?.addEventListener('click', handleClearAllAttempts);
+  function attachAdminListeners() {
+    document
+      .getElementById("logout-btn")
+      ?.addEventListener("click", () => auth.signOut());
+    document
+      .getElementById("add-question-btn")
+      ?.addEventListener("click", toggleAddForm);
+    document
+      .getElementById("cancel-edit-btn")
+      ?.addEventListener("click", cancelEdit);
+    document
+      .getElementById("question-form")
+      ?.addEventListener("submit", handleFormSubmit);
+    // Filters
+    document
+      .getElementById("search-input")
+      ?.addEventListener("input", handleFilterChange);
+    document
+      .getElementById("area-filter")
+      ?.addEventListener("change", handleFilterChange);
+    // Form dynamics
+    document
+      .getElementById("form-area")
+      ?.addEventListener("change", updateFormFields);
+    document
+      .getElementById("form-subject")
+      ?.addEventListener("change", updateFormFields);
 
-        // Print button
-        document.getElementById('print-questions-btn')?.addEventListener('click', handlePrintQuestions);
+    document
+      .querySelectorAll(".edit-btn")
+      .forEach((btn) => btn.addEventListener("click", handleEdit));
+    document
+      .querySelectorAll(".delete-btn")
+      .forEach((btn) => btn.addEventListener("click", handleDelete));
+    document
+      .querySelectorAll(".expand-btn")
+      .forEach((btn) => btn.addEventListener("click", handleExpand));
+    document
+      .getElementById("clear-leaderboard-btn")
+      ?.addEventListener("click", handleClearLeaderboard);
 
-        // New listeners
-        document.getElementById('save-countdown-btn')?.addEventListener('click', handleSaveCountdown);
-        document.getElementById('announcement-form')?.addEventListener('submit', handleAnnouncementSubmit);
-        document.getElementById('cancel-announcement-edit-btn')?.addEventListener('click', cancelAnnouncementEdit);
-        document.querySelectorAll('.edit-announcement-btn').forEach(b => b.addEventListener('click', handleEditAnnouncement));
-        document.querySelectorAll('.delete-announcement-btn').forEach(b => b.addEventListener('click', handleDeleteAnnouncement));
+    document
+      .querySelectorAll(".question-checkbox")
+      .forEach((cb) =>
+        cb.addEventListener("change", handleQuestionSelectionChange),
+      );
+    document
+      .getElementById("select-all-checkbox")
+      ?.addEventListener("change", handleSelectAllChange);
+    document
+      .getElementById("delete-selected-btn")
+      ?.addEventListener("click", handleDeleteSelected);
 
-        // Uploader Listeners
-        document.getElementById('uploader-area')?.addEventListener('change', checkConfigAndToggleDataSection);
-        document.getElementById('validate-btn')?.addEventListener('click', handleValidateJson);
-        document.getElementById('upload-btn')?.addEventListener('click', handleUploadBatch);
-    }
-    
-    // Uploader Logic Methods
-    function checkConfigAndToggleDataSection() {
-        const area = document.getElementById('uploader-area').value;
-        const dataSection = document.getElementById('data-input-section');
-        const exampleCode = document.getElementById('json-example-code');
-        const questionsInput = document.getElementById('questions-input');
-        
-        state.selectedUploadArea = area;
+    document
+      .querySelectorAll(".view-attempt-btn")
+      .forEach((btn) => btn.addEventListener("click", handleViewAttempt));
+    document
+      .querySelectorAll(".delete-attempt-btn")
+      .forEach((btn) => btn.addEventListener("click", handleDeleteAttempt));
+    document
+      .getElementById("clear-attempts-btn")
+      ?.addEventListener("click", handleClearAllAttempts);
 
-        const examples = {
-            '單字測驗': [
-                { "content": "What is the synonym for \"Happy\"?", "options": ["Sad", "Angry", "Joyful", "Tired"], "answer": 2, "explanation": "\"Joyful\" is a synonym for \"Happy\"." }
-            ],
-            '文法練習': [
-                { "content": "She _____ to the store yesterday.", "options": ["goes", "going", "went", "gone"], "answer": 2, "explanation": "Yesterday indicates past tense, so 'went' is correct." }
-            ],
-            '閱讀測驗': [
-                { "content": "Read the following passage:\\n'The quick brown fox jumps over the lazy dog.'\\n\\nQuestion: Who is jumping?", "options": ["The dog", "The fox", "Both", "Neither"], "answer": 1, "explanation": "The passage explicitly states 'The quick brown fox jumps...'." }
-            ]
-        };
+    // Print button
+    document
+      .getElementById("print-questions-btn")
+      ?.addEventListener("click", handlePrintQuestions);
 
-        if (area) {
-            if (exampleCode) {
-                const exampleString = JSON.stringify(examples[area] || [], null, 2);
-                exampleCode.textContent = exampleString;
-                
-                if (!questionsInput.value.trim() || Object.values(examples).some(ex => JSON.stringify(ex, null, 2) === questionsInput.value.trim())) {
-                    questionsInput.value = exampleString;
-                }
-            }
-
-            if (dataSection.style.display === 'none') {
-                dataSection.style.display = 'block';
-                dataSection.classList.add('fade-in');
-            }
+    // Grading button
+    document.addEventListener("click", (e) => {
+      if (e.target.classList.contains("save-grade-btn")) {
+        const questionId = e.target.dataset.questionId;
+        const gradeInput = document.getElementById(`grade-${questionId}`);
+        const grade = parseInt(gradeInput.value, 10);
+        if (grade >= 0 && grade <= 100) {
+          handleSaveGrade(questionId, grade);
         } else {
-            dataSection.style.display = 'none';
+          alert("請輸入有效的評分 (0-100)。");
         }
+      }
+    });
+
+    // New listeners
+    document
+      .getElementById("save-countdown-btn")
+      ?.addEventListener("click", handleSaveCountdown);
+    document
+      .getElementById("announcement-form")
+      ?.addEventListener("submit", handleAnnouncementSubmit);
+    document
+      .getElementById("cancel-announcement-edit-btn")
+      ?.addEventListener("click", cancelAnnouncementEdit);
+    document
+      .querySelectorAll(".edit-announcement-btn")
+      .forEach((b) => b.addEventListener("click", handleEditAnnouncement));
+    document
+      .querySelectorAll(".delete-announcement-btn")
+      .forEach((b) => b.addEventListener("click", handleDeleteAnnouncement));
+
+    // Uploader Listeners
+    document
+      .getElementById("uploader-area")
+      ?.addEventListener("change", checkConfigAndToggleDataSection);
+    document
+      .getElementById("validate-btn")
+      ?.addEventListener("click", handleValidateJson);
+    document
+      .getElementById("upload-btn")
+      ?.addEventListener("click", handleUploadBatch);
+
+    // Suggestion Listeners
+    document
+      .querySelectorAll(".approve-suggestion-btn")
+      .forEach((btn) => btn.addEventListener("click", handleApproveSuggestion));
+    document
+      .querySelectorAll(".reject-suggestion-btn")
+      .forEach((btn) => btn.addEventListener("click", handleRejectSuggestion));
+  }
+
+  // Uploader Logic Methods
+  function checkConfigAndToggleDataSection() {
+    const area = document.getElementById("uploader-area").value;
+    const dataSection = document.getElementById("data-input-section");
+    const exampleCode = document.getElementById("json-example-code");
+    const questionsInput = document.getElementById("questions-input");
+
+    state.selectedUploadArea = area;
+
+    const examples = {
+      單字測驗: [
+        {
+          content: 'What is the synonym for "Happy"?',
+          options: ["Sad", "Angry", "Joyful", "Tired"],
+          answer: 2,
+          explanation: '"Joyful" is a synonym for "Happy".',
+        },
+      ],
+      文法練習: [
+        {
+          content: "She _____ to the store yesterday.",
+          options: ["goes", "going", "went", "gone"],
+          answer: 2,
+          explanation: "Yesterday indicates past tense, so 'went' is correct.",
+        },
+      ],
+      閱讀測驗: [
+        {
+          content:
+            "Read the following passage:\\n'The quick brown fox jumps over the lazy dog.'\\n\\nQuestion: Who is jumping?",
+          options: ["The dog", "The fox", "Both", "Neither"],
+          answer: 1,
+          explanation:
+            "The passage explicitly states 'The quick brown fox jumps...'.",
+        },
+      ],
+    };
+
+    if (area) {
+      if (exampleCode) {
+        const exampleString = JSON.stringify(examples[area] || [], null, 2);
+        exampleCode.textContent = exampleString;
+
+        if (
+          !questionsInput.value.trim() ||
+          Object.values(examples).some(
+            (ex) => JSON.stringify(ex, null, 2) === questionsInput.value.trim(),
+          )
+        ) {
+          questionsInput.value = exampleString;
+        }
+      }
+
+      if (dataSection.style.display === "none") {
+        dataSection.style.display = "block";
+        dataSection.classList.add("fade-in");
+      }
+    } else {
+      dataSection.style.display = "none";
+    }
+  }
+
+  function handleValidateJson() {
+    const inputText = document.getElementById("questions-input").value;
+    const jsonPreview = document.getElementById("json-preview");
+    const uploadBtn = document.getElementById("upload-btn");
+
+    state.validatedQuestions = [];
+    uploadBtn.disabled = true;
+
+    if (!inputText.trim()) {
+      jsonPreview.innerHTML = `<code style="color: var(--danger-color);">錯誤：輸入框為空。</code>`;
+      showUploadStatus("錯誤：輸入框不可為空。", "error");
+      return;
     }
 
-    function handleValidateJson() {
-        const inputText = document.getElementById('questions-input').value;
-        const jsonPreview = document.getElementById('json-preview');
-        const uploadBtn = document.getElementById('upload-btn');
-
-        state.validatedQuestions = [];
-        uploadBtn.disabled = true;
-
-        if (!inputText.trim()) {
-            jsonPreview.innerHTML = `<code style="color: var(--danger-color);">錯誤：輸入框為空。</code>`;
-            showUploadStatus('錯誤：輸入框不可為空。', 'error');
-            return;
-        }
-
-        let parsedData;
-        try {
-            parsedData = JSON.parse(inputText);
-        } catch (e) {
-            jsonPreview.innerHTML = `<code style="color: var(--danger-color);">JSON 語法錯誤：<br>${e.message}</code>`;
-            showUploadStatus('JSON 語法錯誤，請檢查您的格式。', 'error');
-            return;
-        }
-
-        if (!Array.isArray(parsedData)) {
-            jsonPreview.innerHTML = `<code style="color: var(--danger-color);">格式錯誤：最外層必須是一個陣列 ( [...] )。</code>`;
-            showUploadStatus('格式錯誤：最外層必須是一個陣列。', 'error');
-            return;
-        }
-        
-        const errors = [];
-        parsedData.forEach((item, index) => {
-            if (typeof item.content !== 'string' || !item.content) {
-                errors.push(`第 ${index + 1} 筆資料：缺少有效的 "content" (字串) 欄位。`);
-            }
-            if (!Array.isArray(item.options) || item.options.length !== 4) {
-                 errors.push(`第 ${index + 1} 筆資料："options" 必須是一個包含 4 個選項的陣列。`);
-            }
-            if (typeof item.answer !== 'number' || item.answer < 0 || item.answer > 3) {
-                 errors.push(`第 ${index + 1} 筆資料："answer" 必須是 0-3 之間的數字。`);
-            }
-        });
-
-        if (errors.length > 0) {
-            const errorHtml = errors.map(e => `<li>${e}</li>`).join('');
-            jsonPreview.innerHTML = `<code style="color: var(--danger-color);"><ul style="margin: 0; padding-left: 20px;">${errorHtml}</ul></code>`;
-            showUploadStatus(`發現 ${errors.length} 個內容格式錯誤，請修正後再試。`, 'error');
-            return;
-        }
-        
-        state.validatedQuestions = parsedData;
-
-        jsonPreview.innerHTML = `<code>${JSON.stringify(parsedData, null, 2)}</code>`;
-        uploadBtn.disabled = false;
-        showUploadStatus(`成功驗證 ${parsedData.length} 筆資料，可以上傳。`, 'success');
+    let parsedData;
+    try {
+      parsedData = JSON.parse(inputText);
+    } catch (e) {
+      jsonPreview.innerHTML = `<code style="color: var(--danger-color);">JSON 語法錯誤：<br>${e.message}</code>`;
+      showUploadStatus("JSON 語法錯誤，請檢查您的格式。", "error");
+      return;
     }
 
-    async function handleUploadBatch() {
-        if (state.validatedQuestions.length === 0) {
-            alert('沒有可上傳的題目。請先驗證 JSON。');
-            return;
-        }
+    if (!Array.isArray(parsedData)) {
+      jsonPreview.innerHTML = `<code style="color: var(--danger-color);">格式錯誤：最外層必須是一個陣列 ( [...] )。</code>`;
+      showUploadStatus("格式錯誤：最外層必須是一個陣列。", "error");
+      return;
+    }
 
-        if (!confirm(`確定要上傳 ${state.validatedQuestions.length} 筆新題目到資料庫嗎？\\n\\n測驗類型: ${state.selectedUploadArea}`)) {
-            return;
-        }
-        
-        const uploadBtn = document.getElementById('upload-btn');
-        uploadBtn.disabled = true;
-        uploadBtn.innerHTML = '<div class="loading"></div> 上傳中...';
+    const errors = [];
+    parsedData.forEach((item, index) => {
+      if (typeof item.content !== "string" || !item.content) {
+        errors.push(
+          `第 ${index + 1} 筆資料：缺少有效的 "content" (字串) 欄位。`,
+        );
+      }
+      if (!Array.isArray(item.options) || item.options.length !== 4) {
+        errors.push(
+          `第 ${index + 1} 筆資料："options" 必須是一個包含 4 個選項的陣列。`,
+        );
+      }
+      if (
+        typeof item.answer !== "number" ||
+        item.answer < 0 ||
+        item.answer > 3
+      ) {
+        errors.push(`第 ${index + 1} 筆資料："answer" 必須是 0-3 之間的數字。`);
+      }
+    });
 
-        try {
-            const batch = db.batch();
+    if (errors.length > 0) {
+      const errorHtml = errors.map((e) => `<li>${e}</li>`).join("");
+      jsonPreview.innerHTML = `<code style="color: var(--danger-color);"><ul style="margin: 0; padding-left: 20px;">${errorHtml}</ul></code>`;
+      showUploadStatus(
+        `發現 ${errors.length} 個內容格式錯誤，請修正後再試。`,
+        "error",
+      );
+      return;
+    }
 
-            state.validatedQuestions.forEach(question => {
-                const docRef = questionsCollection.doc();
-                 const finalQuestion = {
-                    area: state.selectedUploadArea,
-                    year: null,
-                    subject: '英文',
-                    examType: state.selectedUploadArea,
-                    content: question.content,
-                    options: question.options,
-                    answer: question.answer,
-                    explanation: question.explanation || ''
-                };
-                batch.set(docRef, finalQuestion);
-            });
+    state.validatedQuestions = parsedData;
 
-            await batch.commit();
-            alert(`成功上傳 ${state.validatedQuestions.length} 筆題目！`);
-            showUploadStatus(`成功上傳 ${state.validatedQuestions.length} 筆題目！`, 'success');
-            document.getElementById('questions-input').value = '';
-            document.getElementById('json-preview').innerHTML = '<code>點擊「驗證 JSON」以產生預覽。</code>';
-            state.validatedQuestions = [];
-            handleFilterChange();
+    jsonPreview.innerHTML = `<code>${JSON.stringify(parsedData, null, 2)}</code>`;
+    uploadBtn.disabled = false;
+    showUploadStatus(
+      `成功驗證 ${parsedData.length} 筆資料，可以上傳。`,
+      "success",
+    );
+  }
 
-        } catch (error) {
-            console.error("Error uploading questions: ", error);
-            showUploadStatus(`上傳失敗: ${error.message}`, 'error');
-        } finally {
-             uploadBtn.innerHTML = `
+  async function handleUploadBatch() {
+    if (state.validatedQuestions.length === 0) {
+      alert("沒有可上傳的題目。請先驗證 JSON。");
+      return;
+    }
+
+    if (
+      !confirm(
+        `確定要上傳 ${state.validatedQuestions.length} 筆新題目到資料庫嗎？\\n\\n測驗類型: ${state.selectedUploadArea}`,
+      )
+    ) {
+      return;
+    }
+
+    const uploadBtn = document.getElementById("upload-btn");
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<div class="loading"></div> 上傳中...';
+
+    try {
+      const batch = db.batch();
+
+      state.validatedQuestions.forEach((question) => {
+        const docRef = questionsCollection.doc();
+        const finalQuestion = {
+          area: state.selectedUploadArea,
+          year: null,
+          subject: "英文",
+          examType: state.selectedUploadArea,
+          content: question.content,
+          options: question.options,
+          answer: question.answer,
+          explanation: question.explanation || "",
+        };
+        batch.set(docRef, finalQuestion);
+      });
+
+      await batch.commit();
+      alert(`成功上傳 ${state.validatedQuestions.length} 筆題目！`);
+      showUploadStatus(
+        `成功上傳 ${state.validatedQuestions.length} 筆題目！`,
+        "success",
+      );
+      document.getElementById("questions-input").value = "";
+      document.getElementById("json-preview").innerHTML =
+        "<code>點擊「驗證 JSON」以產生預覽。</code>";
+      state.validatedQuestions = [];
+      handleFilterChange();
+    } catch (error) {
+      console.error("Error uploading questions: ", error);
+      showUploadStatus(`上傳失敗: ${error.message}`, "error");
+    } finally {
+      uploadBtn.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 上傳至 Firebase
             `;
-        }
     }
-    
-    function showUploadStatus(message, type = 'info') {
-        const statusDiv = document.getElementById('status-message');
-        if (!statusDiv) return;
-        statusDiv.textContent = message;
-        statusDiv.className = `status-message ${type}`;
-        statusDiv.style.display = 'block';
+  }
+
+  function showUploadStatus(message, type = "info") {
+    const statusDiv = document.getElementById("status-message");
+    if (!statusDiv) return;
+    statusDiv.textContent = message;
+    statusDiv.className = `status-message ${type}`;
+    statusDiv.style.display = "block";
+  }
+
+  async function handleApproveSuggestion(e) {
+    const suggestionId = e.currentTarget.dataset.id;
+    const suggestion = state.suggestions.find((s) => s.id === suggestionId);
+
+    if (!suggestion) return;
+
+    if (
+      !confirm(
+        `確定要批准此題目建議並加入題庫嗎？\n\n題目：${suggestion.content}`,
+      )
+    ) {
+      return;
     }
 
-    async function handleClearLeaderboard() {
-        if (confirm('確定要清除所有科目的歷史排名嗎？此操作無法復原。')) {
-            try {
-                const snapshot = await leaderboardCollection.get();
-                const batch = db.batch();
-                snapshot.docs.forEach(doc => batch.delete(doc.ref));
-                await batch.commit();
-                alert('所有排名資料已成功清除。');
-            } catch (error) {
-                console.error("Error clearing leaderboard: ", error);
-                alert('清除排名時發生錯誤。');
-            }
-        }
+    try {
+      // Create the question from suggestion
+      const questionData = {
+        area: suggestion.type,
+        subject: "英文",
+        content: suggestion.content,
+        year: null,
+        examType: suggestion.type,
+      };
+
+      if (suggestion.type === "手寫題目") {
+        // For handwritten questions
+        questionData.explanation = suggestion.notes || "";
+      } else {
+        // For multiple choice, we need to add default options (admin can edit later)
+        questionData.options = ["選項A", "選項B", "選項C", "選項D"];
+        questionData.answer = 0;
+        questionData.explanation = suggestion.notes || "";
+      }
+
+      // Add to questions collection
+      await questionsCollection.add(questionData);
+
+      // Update suggestion status
+      await questionSuggestionsCollection.doc(suggestionId).update({
+        status: "approved",
+        approvedAt: new Date(),
+      });
+
+      alert("題目已成功加入題庫！");
+      loadSuggestions(); // Refresh suggestions list
+      handleFilterChange(); // Refresh questions list
+    } catch (error) {
+      console.error("Error approving suggestion:", error);
+      alert("批准失敗，請稍後再試。");
+    }
+  }
+
+  async function handleRejectSuggestion(e) {
+    const suggestionId = e.currentTarget.dataset.id;
+    const suggestion = state.suggestions.find((s) => s.id === suggestionId);
+
+    if (!suggestion) return;
+
+    if (!confirm(`確定要拒絕此題目建議嗎？\n\n題目：${suggestion.content}`)) {
+      return;
     }
 
-    async function handleFilterChange() {
-        const filters = {
-            searchTerm: document.getElementById('search-input').value.toLowerCase(),
-            area: document.getElementById('area-filter').value,
-        };
-        
-        state.filters = filters; 
-    
-        if (!filters.area && !filters.searchTerm) {
-            setState({ 
-                questions: [], 
-                filteredQuestions: [], 
-                initialQuestionLoad: true 
-            });
-            return;
-        }
-    
-        setState({ loading: true, initialQuestionLoad: false });
-    
-        try {
-            let query = questionsCollection;
-            if (filters.area) query = query.where('area', '==', filters.area);
-    
-            const snapshot = await query.get();
-            const fetchedQuestions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
-            const clientFilteredQuestions = filters.searchTerm 
-                ? fetchedQuestions.filter(q => q.content.toLowerCase().includes(filters.searchTerm))
-                : fetchedQuestions;
-            
-            setState({
-                questions: fetchedQuestions,
-                filteredQuestions: clientFilteredQuestions,
-                loading: false
-            });
-    
-        } catch (error) {
-            console.error("Error fetching filtered questions:", error);
-            alert('查詢題目時發生錯誤，這通常是缺少資料庫索引。請檢查瀏覽器主控台中的錯誤訊息以取得建立索引的連結。');
-            setState({ loading: false, questions: [], filteredQuestions: [], initialQuestionLoad: true });
-        }
+    try {
+      await questionSuggestionsCollection.doc(suggestionId).update({
+        status: "rejected",
+        rejectedAt: new Date(),
+      });
+
+      alert("題目建議已拒絕。");
+      loadSuggestions(); // Refresh suggestions list
+    } catch (error) {
+      console.error("Error rejecting suggestion:", error);
+      alert("拒絕失敗，請稍後再試。");
+    }
+  }
+
+  async function handleClearLeaderboard() {
+    if (confirm("確定要清除所有科目的歷史排名嗎？此操作無法復原。")) {
+      try {
+        const snapshot = await leaderboardCollection.get();
+        const batch = db.batch();
+        snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+        alert("所有排名資料已成功清除。");
+      } catch (error) {
+        console.error("Error clearing leaderboard: ", error);
+        alert("清除排名時發生錯誤。");
+      }
+    }
+  }
+
+  async function handleFilterChange() {
+    const filters = {
+      searchTerm: document.getElementById("search-input").value.toLowerCase(),
+      area: document.getElementById("area-filter").value,
+    };
+
+    state.filters = filters;
+
+    if (!filters.area && !filters.searchTerm) {
+      setState({
+        questions: [],
+        filteredQuestions: [],
+        initialQuestionLoad: true,
+      });
+      return;
     }
 
-    function toggleAddForm() {
-        setState({ showForm: !state.showForm, editingQuestionId: null });
+    setState({ loading: true, initialQuestionLoad: false });
+
+    try {
+      let query = questionsCollection;
+      if (filters.area) query = query.where("area", "==", filters.area);
+
+      const snapshot = await query.get();
+      const fetchedQuestions = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      const clientFilteredQuestions = filters.searchTerm
+        ? fetchedQuestions.filter((q) =>
+            q.content.toLowerCase().includes(filters.searchTerm),
+          )
+        : fetchedQuestions;
+
+      setState({
+        questions: fetchedQuestions,
+        filteredQuestions: clientFilteredQuestions,
+        loading: false,
+      });
+    } catch (error) {
+      console.error("Error fetching filtered questions:", error);
+      alert(
+        "查詢題目時發生錯誤，這通常是缺少資料庫索引。請檢查瀏覽器主控台中的錯誤訊息以取得建立索引的連結。",
+      );
+      setState({
+        loading: false,
+        questions: [],
+        filteredQuestions: [],
+        initialQuestionLoad: true,
+      });
+    }
+  }
+
+  function toggleAddForm() {
+    setState({ showForm: !state.showForm, editingQuestionId: null });
+  }
+
+  function cancelEdit() {
+    setState({ showForm: false, editingQuestionId: null });
+  }
+
+  function handleEdit(e) {
+    const id = e.currentTarget.dataset.id;
+    setState({
+      editingQuestionId: id,
+      showForm: true,
+      expandedQuestionId: null,
+    });
+    document
+      .getElementById("question-form-container")
+      .scrollIntoView({ behavior: "smooth" });
+  }
+
+  async function handleDelete(e) {
+    const id = e.currentTarget.dataset.id;
+    if (confirm("確定要刪除此題目嗎？此操作無法復原。")) {
+      try {
+        await questionsCollection.doc(id).delete();
+        handleFilterChange(); // Refresh list based on current filters
+      } catch (error) {
+        console.error("Error deleting question:", error);
+        alert("刪除題目時發生錯誤。");
+      }
+    }
+  }
+
+  function handleExpand(e) {
+    const id = e.currentTarget.dataset.id;
+    const details = document.querySelector(
+      `#q-item-${id} .question-item-details`,
+    );
+    if (details) {
+      if (state.expandedQuestionId === id) {
+        details.style.display = "none";
+        setState({ expandedQuestionId: null });
+      } else {
+        const oldDetails = state.expandedQuestionId
+          ? document.querySelector(
+              `#q-item-${state.expandedQuestionId} .question-item-details`,
+            )
+          : null;
+        if (oldDetails) oldDetails.style.display = "none";
+
+        details.style.display = "block";
+        setState({ expandedQuestionId: id });
+      }
+    }
+  }
+
+  function handleQuestionSelectionChange(e) {
+    const questionId = e.target.dataset.id;
+    const isChecked = e.target.checked;
+    const newSelectedIds = new Set(state.selectedQuestionIds);
+
+    if (isChecked) {
+      newSelectedIds.add(questionId);
+    } else {
+      newSelectedIds.delete(questionId);
+    }
+    setState({ selectedQuestionIds: newSelectedIds });
+  }
+
+  function handleSelectAllChange(e) {
+    const isChecked = e.target.checked;
+    const newSelectedIds = new Set(state.selectedQuestionIds);
+
+    if (isChecked) {
+      state.filteredQuestions.forEach((q) => newSelectedIds.add(q.id));
+    } else {
+      state.filteredQuestions.forEach((q) => newSelectedIds.delete(q.id));
+    }
+    setState({ selectedQuestionIds: newSelectedIds });
+  }
+
+  async function handleDeleteSelected() {
+    const count = state.selectedQuestionIds.size;
+    if (count === 0) return;
+    if (!confirm(`確定要刪除選取的 ${count} 個題目嗎？此操作無法復原。`))
+      return;
+
+    setState({ loading: true });
+
+    try {
+      const batch = db.batch();
+      state.selectedQuestionIds.forEach((id) => {
+        const docRef = questionsCollection.doc(id);
+        batch.delete(docRef);
+      });
+      await batch.commit();
+      alert(`已成功刪除 ${count} 個題目。`);
+      setState({ selectedQuestionIds: new Set() });
+      handleFilterChange();
+    } catch (error) {
+      console.error("Error deleting selected questions:", error);
+      alert("刪除題目時發生錯誤。");
+      setState({ loading: false });
+    }
+  }
+
+  function handleViewAttempt(e) {
+    const attemptId = e.currentTarget.dataset.id;
+    const attempt = state.examAttempts.find((a) => a.id === attemptId);
+    setState({ viewingAttempt: attempt });
+  }
+
+  async function handleDeleteAttempt(e) {
+    const attemptDocId = e.currentTarget.dataset.id;
+    const examId = e.currentTarget.dataset.examId;
+    if (
+      !confirm(
+        `確定要刪除此筆作答紀錄嗎？\n這將會同時從資料庫和排行榜中移除，此操作無法復原。`,
+      )
+    ) {
+      return;
+    }
+    try {
+      const batch = db.batch();
+      const attemptRef = examAttemptsCollection.doc(attemptDocId);
+      batch.delete(attemptRef);
+      if (examId) {
+        const leaderboardQuery = await leaderboardCollection
+          .where("examId", "==", examId)
+          .limit(1)
+          .get();
+        if (!leaderboardQuery.empty) {
+          const leaderboardDocId = leaderboardQuery.docs[0].id;
+          const leaderboardRef = leaderboardCollection.doc(leaderboardDocId);
+          batch.delete(leaderboardRef);
+        }
+      }
+      await batch.commit();
+      alert("紀錄已成功刪除。");
+      setState({ loadingAttempts: true });
+      loadExamAttempts();
+    } catch (error) {
+      console.error("Error deleting attempt:", error);
+      alert(`刪除紀錄時發生錯誤: ${error.message}`);
+    }
+  }
+
+  async function handleClearAllAttempts() {
+    if (
+      !confirm(
+        `確定要清除所有 ${state.examAttempts.length} 筆作答紀錄嗎？\n此操作無法復原。排行榜資料不受影響，可另外手動清除。`,
+      )
+    ) {
+      return;
     }
 
-    function cancelEdit() {
-        setState({ showForm: false, editingQuestionId: null });
+    setState({ loadingAttempts: true });
+
+    try {
+      const snapshot = await examAttemptsCollection.get();
+      if (snapshot.empty) {
+        alert("沒有任何作答紀錄可供刪除。");
+        setState({ loadingAttempts: false });
+        return;
+      }
+
+      // Firestore batches are limited to 500 operations.
+      const batchArray = [];
+      batchArray.push(db.batch());
+      let operationCounter = 0;
+      let batchIndex = 0;
+
+      snapshot.docs.forEach((doc) => {
+        batchArray[batchIndex].delete(doc.ref);
+        operationCounter++;
+
+        if (operationCounter === 500) {
+          batchArray.push(db.batch());
+          batchIndex++;
+          operationCounter = 0;
+        }
+      });
+
+      await Promise.all(batchArray.map((batch) => batch.commit()));
+
+      alert(`已成功刪除所有 ${snapshot.size} 筆作答紀錄。`);
+      await loadExamAttempts(); // This will reset loading state
+    } catch (error) {
+      console.error("Error clearing all attempts:", error);
+      alert(`清除紀錄時發生錯誤: ${error.message}`);
+      setState({ loadingAttempts: false });
+    }
+  }
+
+  async function handleFormSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    const area = form.querySelector("#form-area").value;
+    if (!area) {
+      alert("請選擇一個專區");
+      return;
     }
 
-    function handleEdit(e) {
-        const id = e.currentTarget.dataset.id;
-        setState({ editingQuestionId: id, showForm: true, expandedQuestionId: null });
-        document.getElementById('question-form-container').scrollIntoView({ behavior: 'smooth' });
+    let newQuestionData;
+
+    if (area === "手寫題目") {
+      // For handwritten questions, only store content and explanation
+      newQuestionData = {
+        area: area,
+        subject: "英文",
+        content: form.querySelector("#form-content").value,
+        explanation: form.querySelector("#form-explanation").value.trim(),
+        timeLimit: parseInt(form.querySelector("#form-time-limit").value, 10) || 10,
+        year: null,
+        examType: area,
+        // No options or answer for handwritten questions
+      };
+    } else {
+      // For multiple choice questions
+      newQuestionData = {
+        area: area,
+        subject: "英文",
+        content: form.querySelector("#form-content").value,
+        options: [
+          form.querySelector("#form-option-0").value,
+          form.querySelector("#form-option-1").value,
+          form.querySelector("#form-option-2").value,
+          form.querySelector("#form-option-3").value,
+        ],
+        answer: parseInt(
+          form.querySelector('input[name="answer"]:checked').value,
+          10,
+        ),
+        explanation: form.querySelector("#form-explanation").value.trim(),
+        year: null,
+        examType: area,
+      };
     }
 
-    async function handleDelete(e) {
-        const id = e.currentTarget.dataset.id;
-        if (confirm('確定要刪除此題目嗎？此操作無法復原。')) {
-            try {
-                await questionsCollection.doc(id).delete();
-                handleFilterChange(); // Refresh list based on current filters
-            } catch (error) {
-                console.error("Error deleting question:", error);
-                alert('刪除題目時發生錯誤。');
-            }
-        }
+    try {
+      if (state.editingQuestionId) {
+        await questionsCollection
+          .doc(state.editingQuestionId)
+          .update(newQuestionData);
+      } else {
+        await questionsCollection.add(newQuestionData);
+      }
+      setState({ showForm: false, editingQuestionId: null });
+      handleFilterChange(); // Refresh list
+    } catch (error) {
+      console.error("Error saving question:", error);
+      alert("儲存題目時發生錯誤。");
     }
-    
-    function handleExpand(e) {
-        const id = e.currentTarget.dataset.id;
-        const details = document.querySelector(`#q-item-${id} .question-item-details`);
-        if (details) {
-            if (state.expandedQuestionId === id) {
-                details.style.display = 'none';
-                setState({ expandedQuestionId: null });
-            } else {
-                const oldDetails = state.expandedQuestionId ? document.querySelector(`#q-item-${state.expandedQuestionId} .question-item-details`) : null;
-                if(oldDetails) oldDetails.style.display = 'none';
+  }
 
-                details.style.display = 'block';
-                setState({ expandedQuestionId: id });
-            }
+  async function handleSaveGrade(questionId, grade) {
+    if (!state.viewingAttempt) return;
+
+    try {
+      const attemptRef = examAttemptsCollection.doc(state.viewingAttempt.id);
+      const attemptDoc = await attemptRef.get();
+      if (!attemptDoc.exists) {
+        alert("找不到考試記錄。");
+        return;
+      }
+
+      const attemptData = attemptDoc.data();
+      const updatedQuestions = attemptData.questions.map(q => {
+        if (q.id === questionId) {
+          return { ...q, grade: grade };
         }
+        return q;
+      });
+
+      // Recalculate total score for handwritten questions
+      const hasHandwrittenQuestions = updatedQuestions.some(q => q.area === "手寫題目");
+      let totalScore = 0;
+
+      if (hasHandwrittenQuestions) {
+        // For mixed exams with handwritten questions, calculate score based on question count
+        const multipleChoiceQuestions = updatedQuestions.filter(q => q.area !== "手寫題目");
+        const handwrittenQuestions = updatedQuestions.filter(q => q.area === "手寫題目");
+
+        const mcScore = multipleChoiceQuestions.length > 0
+          ? (multipleChoiceQuestions.filter(q => q.userAnswer === q.answer).length / multipleChoiceQuestions.length) * multipleChoiceQuestions.length
+          : 0;
+
+        const hwScore = handwrittenQuestions.length > 0
+          ? (handwrittenQuestions.reduce((sum, q) => sum + (q.grade || 0), 0) / 100) * handwrittenQuestions.length
+          : 0;
+
+        totalScore = Math.round(((mcScore + hwScore) / updatedQuestions.length) * 100);
+      } else {
+        // Pure multiple choice exam
+        const correctCount = updatedQuestions.filter(q => q.userAnswer === q.answer).length;
+        totalScore = Math.round((correctCount / updatedQuestions.length) * 100);
+      }
+
+      await attemptRef.update({
+        questions: updatedQuestions,
+        score: totalScore
+      });
+
+      // Update local state
+      state.viewingAttempt = {
+        ...state.viewingAttempt,
+        questions: updatedQuestions,
+        score: totalScore
+      };
+
+      alert("評分已儲存！");
+      render(); // Re-render to show updated grades
+
+    } catch (error) {
+      console.error("Error saving grade:", error);
+      alert("儲存評分時發生錯誤。");
     }
-    
-    function handleQuestionSelectionChange(e) {
-        const questionId = e.target.dataset.id;
-        const isChecked = e.target.checked;
-        const newSelectedIds = new Set(state.selectedQuestionIds);
-
-        if (isChecked) {
-            newSelectedIds.add(questionId);
-        } else {
-            newSelectedIds.delete(questionId);
-        }
-        setState({ selectedQuestionIds: newSelectedIds });
+  }
+  async function handleSaveCountdown() {
+    const date = document.getElementById("countdown-date-input")?.value;
+    if (!date) {
+      alert("請選擇一個日期。");
+      return;
     }
-
-    function handleSelectAllChange(e) {
-        const isChecked = e.target.checked;
-        const newSelectedIds = new Set(state.selectedQuestionIds);
-        
-        if (isChecked) {
-            state.filteredQuestions.forEach(q => newSelectedIds.add(q.id));
-        } else {
-            state.filteredQuestions.forEach(q => newSelectedIds.delete(q.id));
-        }
-        setState({ selectedQuestionIds: newSelectedIds });
+    try {
+      await settingsCollection
+        .doc("mainConfig")
+        .set({ examDate: date }, { merge: true });
+      alert("倒數日期已更新。");
+      setState({ examCountdownDate: date });
+    } catch (error) {
+      alert("儲存失敗：" + error.message);
     }
+  }
 
-    async function handleDeleteSelected() {
-        const count = state.selectedQuestionIds.size;
-        if (count === 0) return;
-        if (!confirm(`確定要刪除選取的 ${count} 個題目嗎？此操作無法復原。`)) return;
-        
-        setState({ loading: true });
+  function cancelAnnouncementEdit() {
+    setState({ editingAnnouncementId: null });
+    document.getElementById("announcement-form").reset();
+    document.getElementById("cancel-announcement-edit-btn").style.display =
+      "none";
+  }
 
-        try {
-            const batch = db.batch();
-            state.selectedQuestionIds.forEach(id => {
-                const docRef = questionsCollection.doc(id);
-                batch.delete(docRef);
-            });
-            await batch.commit();
-            alert(`已成功刪除 ${count} 個題目。`);
-            setState({ selectedQuestionIds: new Set() });
-            handleFilterChange();
-        } catch (error) {
-            console.error("Error deleting selected questions:", error);
-            alert('刪除題目時發生錯誤。');
-            setState({ loading: false });
-        }
-    }
-
-    function handleViewAttempt(e) {
-        const attemptId = e.currentTarget.dataset.id;
-        const attempt = state.examAttempts.find(a => a.id === attemptId);
-        setState({ viewingAttempt: attempt });
-    }
-
-    async function handleDeleteAttempt(e) {
-        const attemptDocId = e.currentTarget.dataset.id;
-        const examId = e.currentTarget.dataset.examId;
-        if (!confirm(`確定要刪除此筆作答紀錄嗎？\n這將會同時從資料庫和排行榜中移除，此操作無法復原。`)) {
-            return;
-        }
-        try {
-            const batch = db.batch();
-            const attemptRef = examAttemptsCollection.doc(attemptDocId);
-            batch.delete(attemptRef);
-            if (examId) {
-                const leaderboardQuery = await leaderboardCollection.where('examId', '==', examId).limit(1).get();
-                if (!leaderboardQuery.empty) {
-                    const leaderboardDocId = leaderboardQuery.docs[0].id;
-                    const leaderboardRef = leaderboardCollection.doc(leaderboardDocId);
-                    batch.delete(leaderboardRef);
-                }
-            }
-            await batch.commit();
-            alert('紀錄已成功刪除。');
-            setState({ loadingAttempts: true });
-            loadExamAttempts();
-        } catch (error) {
-            console.error("Error deleting attempt:", error);
-            alert(`刪除紀錄時發生錯誤: ${error.message}`);
-        }
-    }
-
-    async function handleClearAllAttempts() {
-        if (!confirm(`確定要清除所有 ${state.examAttempts.length} 筆作答紀錄嗎？\n此操作無法復原。排行榜資料不受影響，可另外手動清除。`)) {
-            return;
-        }
-    
-        setState({ loadingAttempts: true });
-        
-        try {
-            const snapshot = await examAttemptsCollection.get();
-            if (snapshot.empty) {
-                alert('沒有任何作答紀錄可供刪除。');
-                setState({ loadingAttempts: false });
-                return;
-            }
-    
-            // Firestore batches are limited to 500 operations.
-            const batchArray = [];
-            batchArray.push(db.batch());
-            let operationCounter = 0;
-            let batchIndex = 0;
-    
-            snapshot.docs.forEach(doc => {
-                batchArray[batchIndex].delete(doc.ref);
-                operationCounter++;
-    
-                if (operationCounter === 500) {
-                    batchArray.push(db.batch());
-                    batchIndex++;
-                    operationCounter = 0;
-                }
-            });
-    
-            await Promise.all(batchArray.map(batch => batch.commit()));
-    
-            alert(`已成功刪除所有 ${snapshot.size} 筆作答紀錄。`);
-            await loadExamAttempts(); // This will reset loading state
-    
-        } catch (error) {
-            console.error("Error clearing all attempts:", error);
-            alert(`清除紀錄時發生錯誤: ${error.message}`);
-            setState({ loadingAttempts: false });
-        }
+  async function handleAnnouncementSubmit(e) {
+    e.preventDefault();
+    const title = document.getElementById("announcement-title").value;
+    const content = document.getElementById("announcement-content").value;
+    if (!title || !content) {
+      alert("標題和內容為必填項。");
+      return;
     }
 
-    async function handleFormSubmit(e) {
-        e.preventDefault();
-        const form = e.target;
-        const area = form.querySelector('#form-area').value;
-        if (!area) {
-            alert('請選擇一個專區');
-            return;
-        }
-        
-        const newQuestionData = {
-            area: area,
-            subject: '英文',
-            content: form.querySelector('#form-content').value,
-            options: [
-                form.querySelector('#form-option-0').value,
-                form.querySelector('#form-option-1').value,
-                form.querySelector('#form-option-2').value,
-                form.querySelector('#form-option-3').value,
-            ],
-            answer: parseInt(form.querySelector('input[name="answer"]:checked').value, 10),
-            explanation: form.querySelector('#form-explanation').value.trim(),
-            year: null,
-            examType: area,
-        };
+    const data = {
+      title,
+      content,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+    };
 
+    try {
+      if (state.editingAnnouncementId) {
+        await announcementsCollection
+          .doc(state.editingAnnouncementId)
+          .update(data);
+        alert("公告已更新。");
+      } else {
+        await announcementsCollection.add(data);
+        alert("公告已發佈。");
+      }
+      cancelAnnouncementEdit();
+      loadAnnouncements();
+    } catch (error) {
+      alert("操作失敗：" + error.message);
+    }
+  }
 
-        try {
-            if (state.editingQuestionId) {
-                await questionsCollection.doc(state.editingQuestionId).update(newQuestionData);
-            } else {
-                await questionsCollection.add(newQuestionData);
-            }
-            setState({ showForm: false, editingQuestionId: null });
-            handleFilterChange(); // Refresh list
-        } catch (error)
-        {
-            console.error("Error saving question:", error);
-            alert('儲存題目時發生錯誤。');
-        }
+  function handleEditAnnouncement(e) {
+    const id = e.currentTarget.dataset.id;
+    const announcement = state.announcements.find((a) => a.id === id);
+    if (announcement) {
+      document.getElementById("announcement-title").value = announcement.title;
+      document.getElementById("announcement-content").value =
+        announcement.content;
+      document.getElementById("cancel-announcement-edit-btn").style.display =
+        "inline-flex";
+      setState({ editingAnnouncementId: id });
+      document
+        .getElementById("announcement-form")
+        .scrollIntoView({ behavior: "smooth" });
     }
+  }
 
-    async function handleSaveCountdown() {
-        const date = document.getElementById('countdown-date-input').value;
-        if (!date) {
-            alert('請選擇一個有效的日期。');
-            return;
-        }
-        try {
-            await settingsCollection.doc('mainConfig').set({ examDate: date }, { merge: true });
-            alert('倒數日期已更新。');
-            setState({ examCountdownDate: date });
-        } catch (error) {
-            alert('儲存失敗：' + error.message);
-        }
+  async function handleDeleteAnnouncement(e) {
+    const id = e.currentTarget.dataset.id;
+    if (confirm("確定要刪除此公告嗎？")) {
+      try {
+        await announcementsCollection.doc(id).delete();
+        alert("公告已刪除。");
+        loadAnnouncements();
+      } catch (error) {
+        alert("刪除失敗：" + error.message);
+      }
     }
-    
-    function cancelAnnouncementEdit() {
-        setState({ editingAnnouncementId: null });
-        document.getElementById('announcement-form').reset();
-        document.getElementById('cancel-announcement-edit-btn').style.display = 'none';
-    }
-    
-    async function handleAnnouncementSubmit(e) {
-        e.preventDefault();
-        const title = document.getElementById('announcement-title').value;
-        const content = document.getElementById('announcement-content').value;
-        if (!title || !content) {
-            alert('標題和內容為必填項。');
-            return;
-        }
-    
-        const data = {
-            title,
-            content,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        };
-    
-        try {
-            if (state.editingAnnouncementId) {
-                await announcementsCollection.doc(state.editingAnnouncementId).update(data);
-                alert('公告已更新。');
-            } else {
-                await announcementsCollection.add(data);
-                alert('公告已發佈。');
-            }
-            cancelAnnouncementEdit();
-            loadAnnouncements();
-        } catch (error) {
-            alert('操作失敗：' + error.message);
-        }
-    }
-    
-    function handleEditAnnouncement(e) {
-        const id = e.currentTarget.dataset.id;
-        const announcement = state.announcements.find(a => a.id === id);
-        if (announcement) {
-            document.getElementById('announcement-title').value = announcement.title;
-            document.getElementById('announcement-content').value = announcement.content;
-            document.getElementById('cancel-announcement-edit-btn').style.display = 'inline-flex';
-            setState({ editingAnnouncementId: id });
-            document.getElementById('announcement-form').scrollIntoView({ behavior: 'smooth' });
-        }
-    }
-    
-    async function handleDeleteAnnouncement(e) {
-        const id = e.currentTarget.dataset.id;
-        if (confirm('確定要刪除此公告嗎？')) {
-            try {
-                await announcementsCollection.doc(id).delete();
-                alert('公告已刪除。');
-                loadAnnouncements();
-            } catch (error) {
-                alert('刪除失敗：' + error.message);
-            }
-        }
-    }
-    
-    function formatTime(seconds) {
-        if (seconds === undefined || seconds === null || isNaN(seconds)) return 'N/A';
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
+  }
 
-    function renderAnalysisReport(attempt) {
-        const { score, questions, area, year, subject, examType, completionTime } = attempt;
+  function formatTime(seconds) {
+    if (seconds === undefined || seconds === null || isNaN(seconds))
+      return "N/A";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
 
-        const totalQuestions = questions.length;
-        const correctCount = questions.filter(q => q.userAnswer === q.answer).length;
-        const completionTimeFormatted = formatTime(completionTime);
-        let title = `英文 - ${examType}`;
-    
-        const summaryHTML = `
+  function renderAnalysisReport(attempt) {
+    const { score, questions, area, year, subject, examType, completionTime } =
+      attempt;
+
+    const totalQuestions = questions.length;
+    const correctCount = questions.filter(
+      (q) => q.area !== "手寫題目" && q.userAnswer === q.answer,
+    ).length;
+    const completionTimeFormatted = formatTime(completionTime);
+    let title = `英文 - ${examType}`;
+
+    const summaryHTML = `
             <div class="analysis-container">
                 <div class="analysis-header">
                     <div class="analysis-icon-container">
@@ -1163,7 +1699,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="analysis-main-grid">
                     <div class="analysis-score-card card">
-                        <div class="simple-score-display ${score >= 60 ? 'pass' : 'fail'}">
+                        <div class="simple-score-display ${score >= 60 ? "pass" : "fail"}">
                             <div class="score-value">${score}</div>
                             <div class="score-unit">分</div>
                         </div>
@@ -1202,10 +1738,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
-    
-        const reviewHTML = renderAnswerReview(questions);
 
-        return `
+    const reviewHTML = renderAnswerReview(questions);
+
+    return `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 1rem 1rem;">
                 <h3 class="section-title" style="margin: 0; border: none; font-size: 1.25rem;">作答紀錄詳情</h3>
                 <button id="print-attempt-btn" class="btn btn-secondary">
@@ -1218,38 +1754,74 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${reviewHTML}
             </div>
         `;
-    }
+  }
 
-    function renderAnswerReview(questions) {
-        let reviewHtml = `
+  function renderAnswerReview(questions) {
+    let reviewHtml = `
             <div class="analysis-details-section">
                 <h3 class="answer-review-title">逐題詳細分析</h3>
         `;
-        
-        questions.forEach((q, index) => {
-            const userAnswer = q.userAnswer;
-            const isCorrect = userAnswer === q.answer;
-            const itemClass = isCorrect ? 'correct' : 'incorrect';
-            
-            reviewHtml += `
+
+    questions.forEach((q, index) => {
+      const userAnswer = q.userAnswer;
+      const isCorrect = userAnswer === q.answer;
+      const itemClass = isCorrect ? "correct" : "incorrect";
+
+      // Check if this is a handwritten question
+      const isHandwritten = q.area === "手寫題目";
+
+      if (isHandwritten) {
+        // Handle handwritten questions
+        reviewHtml += `
+                <div class="review-question-item handwritten">
+                    <div class="review-question-content">
+                        <div class="question-number review-question-number">${index + 1}</div>
+                        <div class="question-text">${q.content}</div>
+                    </div>
+                    <div class="handwritten-answer-section">
+                        <h4>學生手寫答案：</h4>
+                        <div class="handwritten-answer-display">
+                            ${userAnswer || "未作答"}
+                        </div>
+                        <div class="grading-section">
+                            <label for="grade-${q.id}">評分 (0-100分)：</label>
+                            <input type="number" id="grade-${q.id}" min="0" max="100" value="${q.grade || ''}" class="grade-input">
+                            <button class="btn btn-primary save-grade-btn" data-question-id="${q.id}">儲存評分</button>
+                        </div>
+                    </div>
+                    ${
+                      q.explanation
+                        ? `
+                    <div class="explanation-box">
+                        <strong>參考解答：</strong>
+                        <p>${q.explanation.replace(/\n/g, "<br>")}</p>
+                    </div>`
+                        : ""
+                    }
+                </div>
+            `;
+      } else {
+        // Handle multiple choice questions
+        reviewHtml += `
                 <div class="review-question-item ${itemClass}">
                     <div class="review-question-content">
                         <div class="question-number review-question-number">${index + 1}</div>
                         <div class="question-text">${q.content}</div>
                     </div>
                     <div class="review-options-list">
-                        ${q.options.map((opt, optIndex) => {
-                            let optionClass = '';
-                            let icon = '';
+                        ${q.options
+                          .map((opt, optIndex) => {
+                            let optionClass = "";
+                            let icon = "";
                             const isUserAnswer = optIndex === userAnswer;
                             const isCorrectAnswer = optIndex === q.answer;
 
                             if (isCorrectAnswer) {
-                                optionClass = 'correct-answer';
-                                icon = `<span class="review-option-icon">✔</span>`;
+                              optionClass = "correct-answer";
+                              icon = `<span class="review-option-icon">✔</span>`;
                             } else if (isUserAnswer) {
-                                optionClass = 'user-selected';
-                                icon = `<span class="review-option-icon">✖</span>`;
+                              optionClass = "user-selected";
+                              icon = `<span class="review-option-icon">✖</span>`;
                             }
 
                             return `
@@ -1258,104 +1830,111 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <span>${opt}</span>
                                 </div>
                             `;
-                        }).join('')}
+                          })
+                          .join("")}
                     </div>
-                    ${q.explanation ? `
+                    ${
+                      q.explanation
+                        ? `
                     <div class="explanation-box">
                         <strong>詳解：</strong>
-                        <p>${q.explanation.replace(/\n/g, '<br>')}</p>
-                    </div>` : ''}
+                        <p>${q.explanation.replace(/\n/g, "<br>")}</p>
+                    </div>`
+                        : ""
+                    }
                 </div>
             `;
-        });
-        
-        reviewHtml += `</div>`;
-        return reviewHtml;
+      }
+    });
+
+    reviewHtml += `</div>`;
+    return reviewHtml;
+  }
+
+  function handlePrintQuestions() {
+    const { filteredQuestions, filters } = state;
+    if (filteredQuestions.length === 0) {
+      alert("沒有可列印的題目。");
+      return;
     }
 
-    function handlePrintQuestions() {
-        const { filteredQuestions, filters } = state;
-        if (filteredQuestions.length === 0) {
-            alert('沒有可列印的題目。');
-            return;
-        }
-    
-        const btn = document.getElementById('print-questions-btn');
-        const originalBtnHTML = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<div class="loading"></div> 準備列印...';
-    
-        let printContainer = document.getElementById('print-only-container');
-        if (!printContainer) {
-            printContainer = document.createElement('div');
-            printContainer.id = 'print-only-container';
-            document.body.appendChild(printContainer);
-        }
-        
-        let title = '考題列表';
-        if (filters.area) {
-            title = [filters.area, filters.subject, filters.year, filters.examType].filter(Boolean).join(' - ');
-        }
-        
-        let contentHtml = `<div style="padding: 20px; margin: 0;"><h1 style="font-size: 20px; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 16px;">${title}</h1>`;
-        
-        filteredQuestions.forEach((q, index) => {
-            contentHtml += `
+    const btn = document.getElementById("print-questions-btn");
+    const originalBtnHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<div class="loading"></div> 準備列印...';
+
+    let printContainer = document.getElementById("print-only-container");
+    if (!printContainer) {
+      printContainer = document.createElement("div");
+      printContainer.id = "print-only-container";
+      document.body.appendChild(printContainer);
+    }
+
+    let title = "考題列表";
+    if (filters.area) {
+      title = [filters.area, filters.subject, filters.year, filters.examType]
+        .filter(Boolean)
+        .join(" - ");
+    }
+
+    let contentHtml = `<div style="padding: 20px; margin: 0;"><h1 style="font-size: 20px; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 16px;">${title}</h1>`;
+
+    filteredQuestions.forEach((q, index) => {
+      contentHtml += `
                 <div class="print-question-item" style="margin-bottom: 16px;">
                     <p style="font-size: 14px; font-weight: 600; margin-bottom: 8px; line-height: 1.5;">${index + 1}. ${q.content}</p>
                     <ol style="list-style-type: upper-alpha; padding-left: 20px; margin: 0; font-size: 13px;">
-                        ${q.options.map((opt, i) => `<li style="margin-bottom: 4px; line-height: 1.5; ${q.answer === i ? 'font-weight: bold; color: #10B981;' : ''}">${opt}</li>`).join('')}
+                        ${q.options.map((opt, i) => `<li style="margin-bottom: 4px; line-height: 1.5; ${q.answer === i ? "font-weight: bold; color: #10B981;" : ""}">${opt}</li>`).join("")}
                     </ol>
-                    ${q.explanation ? `<div style="font-size: 13px; margin-top: 8px; padding: 8px; background-color: #f3f4f6; border-radius: 4px; border: 1px solid #e5e7eb; line-height: 1.6;"><strong>詳解：</strong> ${q.explanation.replace(/\n/g, '<br>')}</div>` : ''}
+                    ${q.explanation ? `<div style="font-size: 13px; margin-top: 8px; padding: 8px; background-color: #f3f4f6; border-radius: 4px; border: 1px solid #e5e7eb; line-height: 1.6;"><strong>詳解：</strong> ${q.explanation.replace(/\n/g, "<br>")}</div>` : ""}
                 </div>
             `;
-        });
-        contentHtml += `</div>`;
-        printContainer.innerHTML = contentHtml;
-    
-        setTimeout(() => {
-            window.print();
-            btn.disabled = false;
-            btn.innerHTML = originalBtnHTML;
-        }, 100);
-    }
-    
-    function handlePrintAttempt(attempt) {
-        if (!attempt) return;
-        
-        const printButton = document.getElementById('print-attempt-btn');
-        const originalBtnHTML = printButton ? printButton.innerHTML : '';
-        if(printButton) {
-            printButton.disabled = true;
-            printButton.innerHTML = '<div class="loading"></div> 準備列印...';
-        }
-    
-        const sourceElement = document.getElementById('printable-attempt-report');
-        if (!sourceElement) {
-            if(printButton) {
-                printButton.disabled = false;
-                printButton.innerHTML = originalBtnHTML;
-            }
-            alert('找不到可列印的報告內容。');
-            return;
-        }
-    
-        let printContainer = document.getElementById('print-only-container');
-        if (!printContainer) {
-            printContainer = document.createElement('div');
-            printContainer.id = 'print-only-container';
-            document.body.appendChild(printContainer);
-        }
-    
-        printContainer.innerHTML = sourceElement.innerHTML;
-    
-        setTimeout(() => {
-            window.print();
-            if(printButton) {
-                printButton.disabled = false;
-                printButton.innerHTML = originalBtnHTML;
-            }
-        }, 100);
+    });
+    contentHtml += `</div>`;
+    printContainer.innerHTML = contentHtml;
+
+    setTimeout(() => {
+      window.print();
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHTML;
+    }, 100);
+  }
+
+  function handlePrintAttempt(attempt) {
+    if (!attempt) return;
+
+    const printButton = document.getElementById("print-attempt-btn");
+    const originalBtnHTML = printButton ? printButton.innerHTML : "";
+    if (printButton) {
+      printButton.disabled = true;
+      printButton.innerHTML = '<div class="loading"></div> 準備列印...';
     }
 
+    const sourceElement = document.getElementById("printable-attempt-report");
+    if (!sourceElement) {
+      if (printButton) {
+        printButton.disabled = false;
+        printButton.innerHTML = originalBtnHTML;
+      }
+      alert("找不到可列印的報告內容。");
+      return;
+    }
+
+    let printContainer = document.getElementById("print-only-container");
+    if (!printContainer) {
+      printContainer = document.createElement("div");
+      printContainer.id = "print-only-container";
+      document.body.appendChild(printContainer);
+    }
+
+    printContainer.innerHTML = sourceElement.innerHTML;
+
+    setTimeout(() => {
+      window.print();
+      if (printButton) {
+        printButton.disabled = false;
+        printButton.innerHTML = originalBtnHTML;
+      }
+    }, 100);
+  }
 });
