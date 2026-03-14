@@ -35,14 +35,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 科目映射
     const subjectMapping = {
-        'pharmacology': '藥理藥化',
-        'biopharmaceutics': '生物藥劑',
-        'analysis': '藥物分析',
-        'law': '藥事行政法規',
-        'therapeutics': '藥物治療',
-        'pharmaceutics': '藥劑學',
-        'pharmacognosy': '生藥學',
-        'quiz': '小考練習區'
+        'vocab': '單字測驗',
+        'grammar': '文法練習',
+        'reading': '閱讀測驗'
     };
 
     function showPreviewWarning() {
@@ -155,9 +150,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const scoreClass = getScoreClass(item.score);
 
             let detailsHtml = '-';
-            if (subject === '小考練習區' && item.actualSubject) {
-                detailsHtml = `小考: ${item.actualSubject}`;
-            } else if (item.examType) {
+            if (item.examType) {
                 detailsHtml = item.examType;
             }
 
@@ -338,12 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderHistoryResults(attempts) {
         let tableBodyHtml = attempts.map(attempt => {
             const attemptDate = attempt.date ? new Date(attempt.date.seconds * 1000).toLocaleString('zh-TW') : 'N/A';
-            let title = `${attempt.area} - ${attempt.subject}`;
-            if(attempt.area === '國考區') {
-                title = `${attempt.year} ${attempt.subject} (${attempt.examType})`
-            } else {
-                 title = `${attempt.area} - ${attempt.subject} (${attempt.examType})`
-            }
+            let title = `英文 - ${attempt.examType}`;
             const scoreClass = getScoreClass(attempt.score);
 
             return `
@@ -397,10 +385,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const totalQuestions = questions.length;
         const correctCount = questions.filter(q => q.userAnswer === q.answer).length;
         const completionTimeFormatted = formatTime(completionTime);
-        let title = `${area} - ${subject} - ${examType}`;
-        if (area === '國考區') {
-            title = `${year} ${subject} - ${examType}`;
-        }
+        let title = `英文 - ${examType}`;
     
         const reportHTML = `
         <div class="analysis-container" id="printable-user-report">

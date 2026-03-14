@@ -24,24 +24,48 @@ document.addEventListener('DOMContentLoaded', () => {
     const leaderboardCollection = usePreviewMode ? null : db.collection('leaderboard');
     const examAttemptsCollection = usePreviewMode ? null : db.collection('examAttempts');
     
+    // SPA Navigation Setup
+    const openExamBtn = document.getElementById('open-exam-btn');
+    const closeExamBtn = document.getElementById('close-exam-btn');
+    const heroSection = document.querySelector('.hero');
+    const landingMain = document.querySelector('.landing-main');
+
+    function openExam() {
+        if(heroSection) heroSection.style.display = 'none';
+        if(landingMain) landingMain.style.display = 'none';
+        examContainer.style.display = 'block';
+        setState({ view: 'NICKNAME', nickname: '' });
+        const nameInput = document.getElementById('nickname-input');
+        if(nameInput) nameInput.value = '';
+    }
+
+    function closeExam() {
+        // Simple reload to ensure leaderboard is updated with new scores
+        location.reload(); 
+    }
+
+    openExamBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        openExam();
+    });
+
+    closeExamBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeExam();
+    });
+    
     // Data Definitions
     const examAreas = {
-        '國考區': '按年份和科目進行完整的國家考試模擬測驗。',
-        '各科練習題': '針對特定科目的不同章節進行深入練習。',
-        '小考練習區': '對單一科目進行快速的綜合測驗。'
+        '單字測驗': '練習您的英文字彙能力',
+        '文法練習': '加強基礎與進階文法概念',
+        '閱讀測驗': '提升文章理解與語感'
     };
-    const allSubjects = ['藥理藥化', '生物藥劑', '藥物分析', '藥事行政法規', '藥物治療', '藥劑學', '生藥學'];
-    const availableYears = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017'];
-    const nationalExamTypes = ['第一次藥師考試', '第二次藥師考試'];
+    const allSubjects = ['英文']; // simplified to single logic tree
+    const availableYears = []; 
+    const nationalExamTypes = [];
     const quizExamType = '綜合測驗';
     const practiceChapters = {
-        '藥理藥化': ['藥物效力學', '藥物動力學', '擬交感神經作用藥', '交感神經阻斷劑', '擬副交感神經作用藥', '膽鹼神經阻斷藥', '神經肌肉阻斷劑', '神經節阻斷劑', '鎮靜催眠藥', '抗精神病藥', '抗憂鬱藥', '抗焦慮症藥', '抗躁鬱藥', '抗癲癇藥', '抗帕金森藥', '肌肉疾病用藥', '全身麻醉溶劑', '局部麻醉溶劑', '中樞興奮藥、濫用藥物', '麻醉性鎮痛藥', '非固醇類抗炎鎮痛藥', '抗痛風藥', '風濕性關節炎治療藥物', '自泌素及相關藥物', '抗組織胺藥', '抗高血壓藥', '心臟衰竭治療藥物', '利尿劑', '降血脂藥', '心絞痛治療藥物', '心律不整治療藥物', '血栓症治療藥物', '貧血、血液疾病治療藥物', '糖尿病治療藥物', '甲状腺疾病治療藥物', '下視丘及腦下垂體激素', '腎上腺類固醇激素', '雄性激素', '雌性激素', '黃體激素', '鈣調節藥', '抗生素', '抗感染藥物', '抗病毒藥物', '抗黴菌藥物', '抗分枝桿菌藥物 (結核病、痲瘋)', '抗原蟲藥物、驅蟲蟲藥', '抗癌藥物、化學治療藥', '免疫抑制藥、免疫調節藥', '基因療法', '消化性潰瘍用藥', '腹瀉、便秘、腸道疾病用藥', '呼吸道疾病用藥', '止吐藥、鎮咳劑', '皮膚疾病用藥', '重金屬及藥物中毒的解毒藥', '中草藥及天然物'],
-        '生藥學': ['生藥學緒論與研發', '生物科技藥品', '碳水化合物(醣類)', '配糖體(苷類)', '鞣質(鞣酸)', '生物鹼', '苯丙烷類', '萜類化合物', '揮發油', '脂質', '類固醇', '樹脂', '中藥學'],
-        '藥物分析': ['藥物分析基本概念', '容量分析原理', '酸滴定分析法', '鹼滴定分析法', '非水滴定分析法', '沉澱滴定分析法', '錯合滴定分析法', '重量分析法', '氧化還原分析法', '灰份、水份測定法', '浸出物測定法、殘灼檢查法、易碳化物檢查法', '脂質測定法', '揮發油測定法', '生物鹼測定法', '光譜分析法', '紫外光及可視光吸光度測定法', '紅外光吸光度測定法', '螢光光度測定法', '拉曼光譜分析法', '焰光光度測定法、濁度明度測定法', '核磁共振光譜測定法', '質譜儀分析法', '旋光度測定法', '折光率測定法', '電位、電量、離子選擇性電極分析法', '薄層層析法', '高效能液相層析法', '氣相層析法', '毛細管電泳分析法', '超臨界流體層析法及萃取法', '藥物萃取方法', '中華藥典'],
-        '生物藥劑': [],
-        '藥事行政法規': [],
-        '藥物治療': [],
-        '藥劑學': [],
+        '英文': ['單字', '文法', '閱讀測驗']
     };
 
     let allQuestions = [];
@@ -146,24 +170,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderSelectionStep1() {
-        switch (state.selectedArea) {
-            case '國考區': renderYearSelection('SELECTION_1'); break;
-            case '各科練習題': renderSubjectSelection('SELECTION_1', allSubjects); break;
-            case '小考練習區': renderSubjectSelection('SELECTION_1', allSubjects); break;
-        }
+        // Automatically set subject and jump to chapter selection since we only have English now.
+        setState({ selectedSubject: '英文', selectedExamType: state.selectedArea });
+        startExam();
     }
 
     function renderSelectionStep2() {
-        switch (state.selectedArea) {
-            case '國考區': renderSubjectSelection('SELECTION_2', allSubjects); break;
-            case '各科練習題': renderChapterSelection(); break;
-        }
+        // Not used anymore.
     }
     
     function renderSelectionStep3() {
-        switch (state.selectedArea) {
-            case '國考區': renderNationalExamTypeSelection(); break;
-        }
+        // Not used anymore.
     }
 
     // Generic Render Functions
@@ -289,12 +306,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Exam Logic
     function startExam() {
-        const { selectedArea, selectedYear, selectedSubject, selectedExamType } = state;
+        const { selectedArea, selectedSubject, selectedExamType } = state;
         const currentQuestions = allQuestions.filter(q => 
-            q.area === selectedArea &&
-            q.subject === selectedSubject && 
-            q.examType === selectedExamType &&
-            (selectedArea !== '國考區' || q.year === selectedYear)
+            q.examType === selectedExamType
         );
 
         if (currentQuestions.length === 0) {
@@ -335,11 +349,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderExamStep() {
-        const { selectedArea, selectedYear, selectedSubject, selectedExamType, nickname, timeLeft, currentQuestions } = state;
-        let title = `${nickname} | ${selectedArea} | ${selectedSubject} (${selectedExamType})`;
-        if (selectedArea === '國考區') {
-             title = `${nickname} | ${selectedYear} ${selectedSubject} - ${selectedExamType}`;
-        }
+        const { selectedArea, selectedExamType, nickname, timeLeft, currentQuestions } = state;
+        let title = `${nickname} | 英文 | ${selectedExamType}`;
 
         let html = `
             <div class="exam-header card">
@@ -458,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
             userAnswer: state.answers[q.id] === null ? -1 : state.answers[q.id]
         }));
     
-        const leaderboardCategory = state.selectedArea === '小考練習區' ? '小考練習區' : state.selectedSubject;
+        const leaderboardCategory = state.selectedExamType === '單字測驗' ? 'vocab' : (state.selectedExamType === '文法練習' ? 'grammar' : 'reading');
         
         const completionTimeInSeconds = Math.floor((Date.now() - state.startTime) / 1000);
 
@@ -467,8 +478,8 @@ document.addEventListener('DOMContentLoaded', () => {
             nickname: state.nickname,
             nickname_lowercase: state.nickname.toLowerCase(),
             area: state.selectedArea,
-            year: state.selectedYear || null,
-            subject: state.selectedSubject,
+            year: null,
+            subject: '英文',
             examType: state.selectedExamType,
             score: state.score,
             date: firebase.firestore.FieldValue.serverTimestamp(),
@@ -481,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function updateLeaderboard() {
         const { latestExamId, nickname, selectedSubject, selectedYear, selectedExamType, score, selectedArea, startTime } = state;
-        const leaderboardCategory = selectedArea === '小考練習區' ? '小考練習區' : selectedSubject;
+        const leaderboardCategory = selectedExamType === '單字測驗' ? 'vocab' : (selectedExamType === '文法練習' ? 'grammar' : 'reading');
         const completionTimeInSeconds = Math.floor((Date.now() - startTime) / 1000);
 
         const userRecord = {
@@ -489,16 +500,12 @@ document.addEventListener('DOMContentLoaded', () => {
             nickname_lowercase: nickname.toLowerCase(),
             score,
             subject: leaderboardCategory,
-            year: selectedYear || null,
+            year: null,
             examType: selectedExamType,
             date: firebase.firestore.FieldValue.serverTimestamp(),
             examId: latestExamId,
             completionTime: completionTimeInSeconds,
         };
-
-        if (selectedArea === '小考練習區') {
-            userRecord.actualSubject = selectedSubject;
-        }
 
         const querySnapshot = await leaderboardCollection
             .where('subject', '==', leaderboardCategory)
@@ -525,10 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const completionTime = Math.floor((Date.now() - startTime) / 1000);
         const completionTimeFormatted = formatTime(completionTime);
 
-        let title = `${selectedArea} - ${selectedSubject} - ${selectedExamType}`;
-        if (selectedArea === '國考區') {
-            title = `${selectedYear} ${selectedSubject} - ${selectedExamType}`;
-        }
+        let title = `英文 - ${selectedExamType}`;
         
         let reportHTML = `
             <div class="analysis-container">
@@ -591,11 +595,16 @@ document.addEventListener('DOMContentLoaded', () => {
         buttonContainer.style.marginTop = '2rem';
         buttonContainer.style.justifyContent = 'center';
         buttonContainer.innerHTML = `
-            <a href="index.html" class="btn btn-secondary">返回首頁</a>
+            <button id="return-home-btn" class="btn btn-secondary">返回首頁</button>
             <button id="restart-exam-btn" class="btn btn-primary">再測一次</button>
         `;
         stepDivs.RESULT.querySelector('.analysis-container').appendChild(buttonContainer);
-        stepDivs.RESULT.querySelector('#restart-exam-btn').addEventListener('click', () => location.reload());
+        stepDivs.RESULT.querySelector('#restart-exam-btn').addEventListener('click', () => {
+             setState({ view: 'AREA', currentQuestions: [], answers: {}, score: 0 });
+        });
+        stepDivs.RESULT.querySelector('#return-home-btn').addEventListener('click', () => {
+             closeExam();
+        });
     }
 
     function renderAnswerReview(questions) {

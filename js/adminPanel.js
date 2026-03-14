@@ -70,25 +70,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const announcementsCollection = db.collection('announcements');
     const settingsCollection = db.collection('settings');
 
-    const examAreas = ['國考區', '各科練習題', '小考練習區'];
-    const availableYears = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017'];
-    const availableSubjects = ['藥理藥化', '生物藥劑', '藥物分析', '藥事行政法規', '藥物治療', '藥劑學', '生藥學'];
+    const examAreas = ['單字測驗', '文法練習', '閱讀測驗'];
+    const availableYears = [];
+    const availableSubjects = ['英文'];
     
-    const nationalExamTypes = ['第一次藥師考試', '第二次藥師考試'];
+    const nationalExamTypes = [];
     const quizExamType = '綜合測驗';
 
     // Chapters for Practice Area
     const practiceChapters = {
-        '藥理藥化': ['藥物效力學', '藥物動力學', '擬交感神經作用藥', '交感神經阻斷劑', '擬副交感神經作用藥', '膽鹼神經阻斷藥', '神經肌肉阻斷劑', '神經節阻斷劑', '鎮靜催眠藥', '抗精神病藥', '抗憂鬱藥', '抗焦慮症藥', '抗躁鬱藥', '抗癲癇藥', '抗帕金森藥', '肌肉疾病用藥', '全身麻醉溶劑', '局部麻醉溶劑', '中樞興奮藥、濫用藥物', '麻醉性鎮痛藥', '非固醇類抗炎鎮痛藥', '抗痛風藥', '風濕性關節炎治療藥物', '自泌素及相關藥物', '抗組織胺藥', '抗高血壓藥', '心臟衰竭治療藥物', '利尿劑', '降血脂藥', '心絞痛治療藥物', '心律不整治療藥物', '血栓症治療藥物', '貧血、血液疾病治療藥物', '糖尿病治療藥物', '甲状腺疾病治療藥物', '下視丘及腦下垂體激素', '腎上腺類固醇激素', '雄性激素', '雌性激素', '黃體激素', '鈣調節藥', '抗生素', '抗感染藥物', '抗病毒藥物', '抗黴菌藥物', '抗分枝桿菌藥物 (結核病、痲瘋)', '抗原蟲藥物、驅蟲蟲藥', '抗癌藥物、化學治療藥', '免疫抑制藥、免疫調節藥', '基因療法', '消化性潰瘍用藥', '腹瀉、便秘、腸道疾病用藥', '呼吸道疾病用藥', '止吐藥、鎮咳劑', '皮膚疾病用藥', '重金屬及藥物中毒的解毒藥', '中草藥及天然物'],
-        '生藥學': ['生藥學緒論與研發', '生物科技藥品', '碳水化合物(醣類)', '配糖體(苷類)', '鞣質(鞣酸)', '生物鹼', '苯丙烷類', '萜類化合物', '揮發油', '脂質', '類固醇', '樹脂', '中藥學'],
-        '藥物分析': ['藥物分析基本概念', '容量分析原理', '酸滴定分析法', '鹼滴定分析法', '非水滴定分析法', '沉澱滴定分析法', '錯合滴定分析法', '重量分析法', '氧化還原分析法', '灰份、水份測定法', '浸出物測定法、殘灼檢查法、易碳化物檢查法', '脂質測定法', '揮發油測定法', '生物鹼測定法', '光譜分析法', '紫外光及可視光吸光度測定法', '紅外光吸光度測定法', '螢光光度測定法', '拉曼光譜分析法', '焰光光度測定法、濁度明度測定法', '核磁共振光譜測定法', '質譜儀分析法', '旋光度測定法', '折光率測定法', '電位、電量、離子選擇性電極分析法', '薄層層析法', '高效能液相層析法', '氣相層析法', '毛細管電泳分析法', '超臨界流體層析法及萃取法', '藥物萃取方法', '中華藥典'],
-        '生物藥劑': [],
-        '藥事行政法規': [],
-        '藥物治療': [],
-        '藥劑學': [],
+        '英文': ['單字', '文法', '閱讀測驗']
     };
     
-    const allExamTypes = [...new Set([...nationalExamTypes, quizExamType, ...Object.values(practiceChapters).flat()])];
+    const allExamTypes = examAreas;
 
     let state = {
         isLoggedIn: false,
@@ -116,6 +110,9 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingAnnouncements: false,
         editingAnnouncementId: null,
         examCountdownDate: '',
+        // Uploader state variables
+        validatedQuestions: [],
+        selectedUploadArea: '',
     };
 
     function setState(newState) {
@@ -280,20 +277,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </button>
                     <input type="search" id="search-input" placeholder="搜尋題目內容..." value="${filters.searchTerm}">
                     <select id="area-filter">
-                        <option value="">所有專區</option>
+                        <option value="">所有測驗類型</option>
                         ${examAreas.map(a => `<option value="${a}" ${filters.area === a ? 'selected' : ''}>${a}</option>`).join('')}
-                    </select>
-                    <select id="year-filter">
-                        <option value="">所有年份</option>
-                        ${availableYears.map(y => `<option value="${y}" ${filters.year === y ? 'selected' : ''}>${y}</option>`).join('')}
-                    </select>
-                    <select id="subject-filter">
-                        <option value="">所有科目</option>
-                        ${availableSubjects.map(s => `<option value="${s}" ${filters.subject === s ? 'selected' : ''}>${s}</option>`).join('')}
-                    </select>
-                    <select id="exam-type-filter">
-                        <option value="">所有類型</option>
-                        ${allExamTypes.map(t => `<option value="${t}" ${filters.examType === t ? 'selected' : ''}>${t}</option>`).join('')}
                     </select>
                 </section>
 
@@ -302,27 +287,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h3>${editingQuestionId ? '編輯題目' : '新增題目'}</h3>
                         <div class="question-form-grid">
                             <div class="form-group">
-                                <label for="form-area">專區</label>
+                                <label for="form-area">測驗類型</label>
                                 <select id="form-area" required>
-                                    <option value="" disabled ${!editingQuestion ? 'selected' : ''}>-- 請選擇專區 --</option>
+                                    <option value="" disabled ${!editingQuestion ? 'selected' : ''}>-- 請選擇測驗類型 --</option>
                                     ${examAreas.map(a => `<option value="${a}" ${editingQuestion?.area === a ? 'selected' : ''}>${a}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group" id="form-group-year">
-                                <label for="form-year">年份</label>
-                                <select id="form-year">
-                                    ${availableYears.map(y => `<option value="${y}" ${editingQuestion?.year === y ? 'selected' : ''}>${y}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group" id="form-group-subject">
-                                <label for="form-subject">科目</label>
-                                <select id="form-subject">
-                                     ${availableSubjects.map(s => `<option value="${s}" ${editingQuestion?.subject === s ? 'selected' : ''}>${s}</option>`).join('')}
-                                </select>
-                            </div>
-                             <div class="form-group" id="form-group-exam-type">
-                                <label for="form-exam-type">考試類型/章節</label>
-                                <select id="form-exam-type">
                                 </select>
                             </div>
                             <div class="form-group full-width">
@@ -367,6 +335,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 <main id="question-list-container">
                     ${renderQuestionList()}
                 </main>
+
+                <!-- 批次上傳題目 -->
+                <section class="card" style="margin-top: 2rem;" id="batch-upload-section">
+                    <h3>批次上傳題目</h3>
+                    <p class="step-description" style="margin-bottom: 1rem;">將 JSON 格式的題目批次上傳至特定測驗類型。</p>
+                    <div class="form-group">
+                        <label for="uploader-area">測驗類型</label>
+                        <select id="uploader-area" class="glass-select" required>
+                            <option value="" disabled selected>-- 選擇測驗類型 --</option>
+                            ${examAreas.map(a => `<option value="${a}">${a}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div id="data-input-section" style="display: none; margin-top: 1rem;">
+                        <div class="form-group">
+                            <label>該區 JSON 格式範例：</label>
+                            <pre id="json-example-code" style="background:rgba(0,0,0,0.05); padding:1rem; border-radius:8px; font-size:0.9rem; margin-bottom:1rem; overflow-x:auto; border: 1px solid rgba(0,0,0,0.1);"></pre>
+                            <label for="questions-input">題目 JSON 陣列</label>
+                            <textarea id="questions-input" rows="15" placeholder="請在此處貼上您的題目 JSON..."></textarea>
+                        </div>
+                        <div class="form-actions" style="justify-content: flex-start; align-items: center;">
+                            <button id="validate-btn" class="btn btn-secondary">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+                                驗證 JSON
+                            </button>
+                            <button id="upload-btn" class="btn btn-primary" disabled style="margin-left: 1rem;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                上傳至 Firebase
+                            </button>
+                        </div>
+                        <div id="status-message" class="status-message" style="display:none; margin-top: 1rem;"></div>
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label>驗證結果預覽</label>
+                            <pre id="json-preview"><code>點擊「驗證 JSON」以檢查您的資料。</code></pre>
+                        </div>
+                    </div>
+                </section>
                 
                  <!-- 作答紀錄管理 -->
                 <section class="card" style="margin-top: 2rem;">
@@ -438,14 +442,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         attachAdminListeners();
-        // Manually trigger form update if editing
-        if (editingQuestionId) {
-            updateFormFields();
-            const formExamType = document.getElementById('form-exam-type');
-            if(editingQuestion.examType) {
-                 formExamType.value = editingQuestion.examType;
-            }
-        }
     }
 
     function renderQuestionList() {
@@ -478,9 +474,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="flex-grow: 1;">
                             <div class="question-item-tags">
                                 <span class="tag">${q.area}</span>
-                                ${q.year ? `<span class="tag">${q.year}</span>` : ''}
-                                <span class="tag">${q.subject}</span>
-                                <span class="tag">${q.examType}</span>
                             </div>
                             <p class="question-item-title">${q.content}</p>
                         </div>
@@ -529,9 +522,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="attempt-item-header">
                             <div class="attempt-item-info">
                                 <div class="question-item-tags">
-                                    <span class="tag">${attempt.area}</span>
-                                    ${attempt.year ? `<span class="tag">${attempt.year}</span>` : ''}
-                                    <span class="tag">${attempt.subject}</span>
                                     <span class="tag">${attempt.examType}</span>
                                 </div>
                                 <p class="attempt-item-info nickname">${attempt.nickname} - <span style="color: var(--primary-color);">${attempt.score}分</span></p>
@@ -578,39 +568,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateFormFields() {
-        const area = document.getElementById('form-area').value;
-        const subject = document.getElementById('form-subject').value;
-        const yearGroup = document.getElementById('form-group-year');
-        const subjectGroup = document.getElementById('form-group-subject');
-        const examTypeGroup = document.getElementById('form-group-exam-type');
-        const examTypeSelect = document.getElementById('form-exam-type');
-        
-        // Hide all by default
-        yearGroup.style.display = 'none';
-        subjectGroup.style.display = 'none';
-        examTypeGroup.style.display = 'none';
-
-        let examTypes = [];
-
-        switch (area) {
-            case '國考區':
-                yearGroup.style.display = 'block';
-                subjectGroup.style.display = 'block';
-                examTypeGroup.style.display = 'block';
-                examTypes = nationalExamTypes;
-                break;
-            case '各科練習題':
-                subjectGroup.style.display = 'block';
-                examTypeGroup.style.display = 'block';
-                examTypes = practiceChapters[subject] || [];
-                break;
-            case '小考練習區':
-                subjectGroup.style.display = 'block';
-                // examType is not selected by user but set programmatically
-                break;
-        }
-
-        examTypeSelect.innerHTML = examTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+        // Obsolete
     }
     
     function attachLoginListeners() {
@@ -645,9 +603,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Filters
         document.getElementById('search-input')?.addEventListener('input', handleFilterChange);
         document.getElementById('area-filter')?.addEventListener('change', handleFilterChange);
-        document.getElementById('year-filter')?.addEventListener('change', handleFilterChange);
-        document.getElementById('subject-filter')?.addEventListener('change', handleFilterChange);
-        document.getElementById('exam-type-filter')?.addEventListener('change', handleFilterChange);
         // Form dynamics
         document.getElementById('form-area')?.addEventListener('change', updateFormFields);
         document.getElementById('form-subject')?.addEventListener('change', updateFormFields);
@@ -675,8 +630,167 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.edit-announcement-btn').forEach(b => b.addEventListener('click', handleEditAnnouncement));
         document.querySelectorAll('.delete-announcement-btn').forEach(b => b.addEventListener('click', handleDeleteAnnouncement));
 
+        // Uploader Listeners
+        document.getElementById('uploader-area')?.addEventListener('change', checkConfigAndToggleDataSection);
+        document.getElementById('validate-btn')?.addEventListener('click', handleValidateJson);
+        document.getElementById('upload-btn')?.addEventListener('click', handleUploadBatch);
     }
     
+    // Uploader Logic Methods
+    function checkConfigAndToggleDataSection() {
+        const area = document.getElementById('uploader-area').value;
+        const dataSection = document.getElementById('data-input-section');
+        const exampleCode = document.getElementById('json-example-code');
+        const questionsInput = document.getElementById('questions-input');
+        
+        state.selectedUploadArea = area;
+
+        const examples = {
+            '單字測驗': [
+                { "content": "What is the synonym for \"Happy\"?", "options": ["Sad", "Angry", "Joyful", "Tired"], "answer": 2, "explanation": "\"Joyful\" is a synonym for \"Happy\"." }
+            ],
+            '文法練習': [
+                { "content": "She _____ to the store yesterday.", "options": ["goes", "going", "went", "gone"], "answer": 2, "explanation": "Yesterday indicates past tense, so 'went' is correct." }
+            ],
+            '閱讀測驗': [
+                { "content": "Read the following passage:\\n'The quick brown fox jumps over the lazy dog.'\\n\\nQuestion: Who is jumping?", "options": ["The dog", "The fox", "Both", "Neither"], "answer": 1, "explanation": "The passage explicitly states 'The quick brown fox jumps...'." }
+            ]
+        };
+
+        if (area) {
+            if (exampleCode) {
+                const exampleString = JSON.stringify(examples[area] || [], null, 2);
+                exampleCode.textContent = exampleString;
+                
+                if (!questionsInput.value.trim() || Object.values(examples).some(ex => JSON.stringify(ex, null, 2) === questionsInput.value.trim())) {
+                    questionsInput.value = exampleString;
+                }
+            }
+
+            if (dataSection.style.display === 'none') {
+                dataSection.style.display = 'block';
+                dataSection.classList.add('fade-in');
+            }
+        } else {
+            dataSection.style.display = 'none';
+        }
+    }
+
+    function handleValidateJson() {
+        const inputText = document.getElementById('questions-input').value;
+        const jsonPreview = document.getElementById('json-preview');
+        const uploadBtn = document.getElementById('upload-btn');
+
+        state.validatedQuestions = [];
+        uploadBtn.disabled = true;
+
+        if (!inputText.trim()) {
+            jsonPreview.innerHTML = `<code style="color: var(--danger-color);">錯誤：輸入框為空。</code>`;
+            showUploadStatus('錯誤：輸入框不可為空。', 'error');
+            return;
+        }
+
+        let parsedData;
+        try {
+            parsedData = JSON.parse(inputText);
+        } catch (e) {
+            jsonPreview.innerHTML = `<code style="color: var(--danger-color);">JSON 語法錯誤：<br>${e.message}</code>`;
+            showUploadStatus('JSON 語法錯誤，請檢查您的格式。', 'error');
+            return;
+        }
+
+        if (!Array.isArray(parsedData)) {
+            jsonPreview.innerHTML = `<code style="color: var(--danger-color);">格式錯誤：最外層必須是一個陣列 ( [...] )。</code>`;
+            showUploadStatus('格式錯誤：最外層必須是一個陣列。', 'error');
+            return;
+        }
+        
+        const errors = [];
+        parsedData.forEach((item, index) => {
+            if (typeof item.content !== 'string' || !item.content) {
+                errors.push(`第 ${index + 1} 筆資料：缺少有效的 "content" (字串) 欄位。`);
+            }
+            if (!Array.isArray(item.options) || item.options.length !== 4) {
+                 errors.push(`第 ${index + 1} 筆資料："options" 必須是一個包含 4 個選項的陣列。`);
+            }
+            if (typeof item.answer !== 'number' || item.answer < 0 || item.answer > 3) {
+                 errors.push(`第 ${index + 1} 筆資料："answer" 必須是 0-3 之間的數字。`);
+            }
+        });
+
+        if (errors.length > 0) {
+            const errorHtml = errors.map(e => `<li>${e}</li>`).join('');
+            jsonPreview.innerHTML = `<code style="color: var(--danger-color);"><ul style="margin: 0; padding-left: 20px;">${errorHtml}</ul></code>`;
+            showUploadStatus(`發現 ${errors.length} 個內容格式錯誤，請修正後再試。`, 'error');
+            return;
+        }
+        
+        state.validatedQuestions = parsedData;
+
+        jsonPreview.innerHTML = `<code>${JSON.stringify(parsedData, null, 2)}</code>`;
+        uploadBtn.disabled = false;
+        showUploadStatus(`成功驗證 ${parsedData.length} 筆資料，可以上傳。`, 'success');
+    }
+
+    async function handleUploadBatch() {
+        if (state.validatedQuestions.length === 0) {
+            alert('沒有可上傳的題目。請先驗證 JSON。');
+            return;
+        }
+
+        if (!confirm(`確定要上傳 ${state.validatedQuestions.length} 筆新題目到資料庫嗎？\\n\\n測驗類型: ${state.selectedUploadArea}`)) {
+            return;
+        }
+        
+        const uploadBtn = document.getElementById('upload-btn');
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<div class="loading"></div> 上傳中...';
+
+        try {
+            const batch = db.batch();
+
+            state.validatedQuestions.forEach(question => {
+                const docRef = questionsCollection.doc();
+                 const finalQuestion = {
+                    area: state.selectedUploadArea,
+                    year: null,
+                    subject: '英文',
+                    examType: state.selectedUploadArea,
+                    content: question.content,
+                    options: question.options,
+                    answer: question.answer,
+                    explanation: question.explanation || ''
+                };
+                batch.set(docRef, finalQuestion);
+            });
+
+            await batch.commit();
+            alert(`成功上傳 ${state.validatedQuestions.length} 筆題目！`);
+            showUploadStatus(`成功上傳 ${state.validatedQuestions.length} 筆題目！`, 'success');
+            document.getElementById('questions-input').value = '';
+            document.getElementById('json-preview').innerHTML = '<code>點擊「驗證 JSON」以產生預覽。</code>';
+            state.validatedQuestions = [];
+            handleFilterChange();
+
+        } catch (error) {
+            console.error("Error uploading questions: ", error);
+            showUploadStatus(`上傳失敗: ${error.message}`, 'error');
+        } finally {
+             uploadBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                上傳至 Firebase
+            `;
+        }
+    }
+    
+    function showUploadStatus(message, type = 'info') {
+        const statusDiv = document.getElementById('status-message');
+        if (!statusDiv) return;
+        statusDiv.textContent = message;
+        statusDiv.className = `status-message ${type}`;
+        statusDiv.style.display = 'block';
+    }
+
     async function handleClearLeaderboard() {
         if (confirm('確定要清除所有科目的歷史排名嗎？此操作無法復原。')) {
             try {
@@ -696,14 +810,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const filters = {
             searchTerm: document.getElementById('search-input').value.toLowerCase(),
             area: document.getElementById('area-filter').value,
-            year: document.getElementById('year-filter').value,
-            subject: document.getElementById('subject-filter').value,
-            examType: document.getElementById('exam-type-filter').value,
         };
         
         state.filters = filters; 
     
-        if (!filters.area && !filters.year && !filters.subject && !filters.examType) {
+        if (!filters.area && !filters.searchTerm) {
             setState({ 
                 questions: [], 
                 filteredQuestions: [], 
@@ -717,9 +828,6 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             let query = questionsCollection;
             if (filters.area) query = query.where('area', '==', filters.area);
-            if (filters.year) query = query.where('year', '==', filters.year);
-            if (filters.subject) query = query.where('subject', '==', filters.subject);
-            if (filters.examType) query = query.where('examType', '==', filters.examType);
     
             const snapshot = await query.get();
             const fetchedQuestions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -923,7 +1031,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const newQuestionData = {
             area: area,
-            subject: form.querySelector('#form-subject').value,
+            subject: '英文',
             content: form.querySelector('#form-content').value,
             options: [
                 form.querySelector('#form-option-0').value,
@@ -934,30 +1042,9 @@ document.addEventListener('DOMContentLoaded', () => {
             answer: parseInt(form.querySelector('input[name="answer"]:checked').value, 10),
             explanation: form.querySelector('#form-explanation').value.trim(),
             year: null,
-            examType: null,
+            examType: area,
         };
 
-        switch (area) {
-            case '國考區':
-                newQuestionData.year = form.querySelector('#form-year').value;
-                newQuestionData.examType = form.querySelector('#form-exam-type').value;
-                if (!newQuestionData.year || !newQuestionData.subject || !newQuestionData.examType) {
-                    alert('國考區題目必須包含年份、科目和考試類型。'); return;
-                }
-                break;
-            case '各科練習題':
-                newQuestionData.examType = form.querySelector('#form-exam-type').value;
-                if (!newQuestionData.subject || !newQuestionData.examType) {
-                    alert('各科練習題必須包含科目和章節。'); return;
-                }
-                break;
-            case '小考練習區':
-                newQuestionData.examType = quizExamType; // Assign default type
-                if (!newQuestionData.subject) {
-                    alert('小考練習區必須包含科目。'); return;
-                }
-                break;
-        }
 
         try {
             if (state.editingQuestionId) {
@@ -1063,10 +1150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalQuestions = questions.length;
         const correctCount = questions.filter(q => q.userAnswer === q.answer).length;
         const completionTimeFormatted = formatTime(completionTime);
-        let title = `${area} - ${subject} - ${examType}`;
-        if (area === '國考區') {
-            title = `${year} ${subject} - ${examType}`;
-        }
+        let title = `英文 - ${examType}`;
     
         const summaryHTML = `
             <div class="analysis-container">
