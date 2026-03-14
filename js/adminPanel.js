@@ -118,6 +118,8 @@ document.addEventListener("DOMContentLoaded", () => {
     loadingSuggestions: false,
   };
 
+  let isGlobalGradingAttached = false;
+
   function setState(newState) {
     Object.assign(state, newState);
     render();
@@ -232,14 +234,18 @@ document.addEventListener("DOMContentLoaded", () => {
       ?.addEventListener("click", () => {
         const reviewModal = document.getElementById("review-modal");
         if (reviewModal) reviewModal.style.display = "none";
-        setState({ viewingAttempt: null });
+        const needsReload = state.needsAttemptReload;
+        setState({ viewingAttempt: null, needsAttemptReload: false });
+        if (needsReload) loadExamAttempts();
       });
     const reviewModal = document.getElementById("review-modal");
     if (reviewModal) {
       reviewModal.addEventListener("click", (e) => {
         if (e.target === reviewModal) {
           reviewModal.style.display = "none";
-          setState({ viewingAttempt: null });
+          const needsReload = state.needsAttemptReload;
+          setState({ viewingAttempt: null, needsAttemptReload: false });
+          if (needsReload) loadExamAttempts();
         }
       });
     }
@@ -327,7 +333,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                         刪除選取 (${selectedQuestionIds.size})
                     </button>
-                     <button id="print-questions-btn" class="btn btn-secondary" ${!hasFilteredQuestions ? "disabled" : ""}>
+                     <button id="print-questions-btn" class="btn btn-secondary">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
                         列印考題
                     </button>
@@ -353,25 +359,25 @@ document.addEventListener("DOMContentLoaded", () => {
                                 <label for="form-content">題目內容</label>
                                 <textarea id="form-content" rows="3" required>${editingQuestion?.content || ""}</textarea>
                             </div>
-                            <div class="options-group" id="options-section" style="display: ${editingQuestion?.area === "手寫題目" ? "none" : "grid"};">
+                            <div class="options-group" id="options-section" style="display: ${editingQuestion?.area === "手寫題目" ? "none" : "grid"};"> 
                                 ${[0, 1, 2, 3]
                                   .map(
                                     (i) => `
                                 <div class="form-group">
                                     <label for="form-option-${i}">選項 ${i + 1}</label>
-                                    <input type="text" id="form-option-${i}" value="${editingQuestion?.options?.[i] || ""}" required>
+                                    <input type="text" id="form-option-${i}" value="${editingQuestion?.options?.[i] || ""}" ${editingQuestion?.area !== "手寫題目" ? "required" : ""}>
                                 </div>`,
                                   )
                                   .join("")}
                             </div>
-                            <div class="answer-group" id="answer-section" style="display: ${editingQuestion?.area === "手寫題目" ? "none" : "block"};">
+                            <div class="answer-group" id="answer-section" style="display: ${editingQuestion?.area === "手寫題目" ? "none" : "block"};"> 
                                 <label>正確答案</label>
                                 <div class="answer-options">
                                     ${[0, 1, 2, 3]
                                       .map(
                                         (i) => `
                                     <label>
-                                        <input type="radio" name="answer" value="${i}" ${editingQuestion?.answer === i ? "checked" : ""} required>
+                                        <input type="radio" name="answer" value="${i}" ${editingQuestion?.answer === i ? "checked" : ""} ${editingQuestion?.area !== "手寫題目" ? "required" : ""}>
                                         選項 ${i + 1}
                                     </label>`,
                                       )
@@ -874,29 +880,34 @@ document.addEventListener("DOMContentLoaded", () => {
       ?.addEventListener("click", handlePrintQuestions);
 
     // Grading logic
-    document.addEventListener("click", (e) => {
-      if (e.target.classList.contains("save-grade-btn")) {
-        const questionId = e.target.dataset.questionId;
-        const gradeInput = document.getElementById(`grade-${questionId}`);
-        const grade = parseInt(gradeInput.value, 10);
-        if (grade >= 0 && grade <= 100) {
-          handleSaveGrade(questionId, grade, true); // true for showing alert
-        } else {
-          alert("請輸入有效的評分 (0-100)。");
+    if (!isGlobalGradingAttached) {
+      document.addEventListener("click", (e) => {
+        const saveBtn = e.target.closest('.save-grade-btn');
+        if (saveBtn) {
+          const questionIndex = saveBtn.dataset.questionIndex;
+          const gradeInput = document.getElementById(`grade-${questionIndex}`);
+          if (!gradeInput) { alert("找不到評分輸入框，請重新整理頁面。"); return; }
+          const grade = parseInt(gradeInput.value, 10);
+          if (!isNaN(grade) && grade >= 0 && grade <= 100) {
+            handleSaveGrade(questionIndex, grade, false);
+          } else {
+            alert("請輸入有效的評分 (0-100)。");
+          }
         }
-      }
-    });
+      });
 
-    // Auto-save grading on input change
-    document.addEventListener("change", (e) => {
-      if (e.target.classList.contains("grade-input")) {
-        const questionId = e.target.dataset.questionId;
-        const grade = parseInt(e.target.value, 10);
-        if (grade >= 0 && grade <= 100) {
-          handleSaveGrade(questionId, grade, false); // false for no alert
+      // Auto-save grading on input change
+      document.addEventListener("change", (e) => {
+        if (e.target.classList.contains("grade-input")) {
+          const questionIndex = e.target.dataset.questionIndex;
+          const grade = parseInt(e.target.value, 10);
+          if (grade >= 0 && grade <= 100) {
+            handleSaveGrade(questionIndex, grade, false); // false for no alert
+          }
         }
-      }
-    });
+      });
+      isGlobalGradingAttached = true;
+    }
 
     // New listeners
     document
@@ -1577,10 +1588,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function handleSaveGrade(questionId, grade, showAlert = true) {
+  async function handleSaveGrade(questionIndex, grade, showAlert = true) {
     if (!state.viewingAttempt) return;
 
-    const statusEl = document.getElementById(`grade-status-${questionId}`);
+    const statusEl = document.getElementById(`grade-status-${questionIndex}`);
     if (statusEl) {
       statusEl.textContent = "儲存中...";
       statusEl.style.display = "inline";
@@ -1596,34 +1607,23 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const attemptData = attemptDoc.data();
-      const updatedQuestions = attemptData.questions.map(q => {
-        if (q.id === questionId) {
+      const updatedQuestions = attemptData.questions.map((q, idx) => {
+        if (idx === parseInt(questionIndex, 10)) {
           return { ...q, grade: grade };
         }
         return q;
       });
 
       // Recalculate total score
-      const hasHandwrittenQuestions = updatedQuestions.some(q => q.area === "手寫題目");
-      let totalScore = 0;
-
-      if (hasHandwrittenQuestions) {
-        const multipleChoiceQuestions = updatedQuestions.filter(q => q.area !== "手寫題目");
-        const handwrittenQuestions = updatedQuestions.filter(q => q.area === "手寫題目");
-
-        const mcScore = multipleChoiceQuestions.length > 0
-          ? (multipleChoiceQuestions.filter(q => q.userAnswer === q.answer).length / multipleChoiceQuestions.length) * multipleChoiceQuestions.length
-          : 0;
-
-        const hwScore = handwrittenQuestions.length > 0
-          ? (handwrittenQuestions.reduce((sum, q) => sum + (q.grade || 0), 0) / 100) * handwrittenQuestions.length
-          : 0;
-
-        totalScore = Math.round(((mcScore + hwScore) / updatedQuestions.length) * 100);
-      } else {
-        const correctCount = updatedQuestions.filter(q => q.userAnswer === q.answer).length;
-        totalScore = Math.round((correctCount / updatedQuestions.length) * 100);
-      }
+      let sum = 0;
+      updatedQuestions.forEach((q) => {
+        if (q.area === "手寫題目") {
+          sum += (q.grade || 0);
+        } else {
+          sum += (q.userAnswer === q.answer ? 100 : 0);
+        }
+      });
+      const totalScore = updatedQuestions.length > 0 ? Math.round(sum / updatedQuestions.length) : 0;
 
       await attemptRef.update({
         questions: updatedQuestions,
@@ -1634,6 +1634,17 @@ document.addEventListener("DOMContentLoaded", () => {
       state.viewingAttempt.questions = updatedQuestions;
       state.viewingAttempt.score = totalScore;
 
+      // Update UI manually to keep the DOM stable
+      const scoreDisplayEl = document.querySelector(".analysis-score-card .score-value");
+      if (scoreDisplayEl) {
+        scoreDisplayEl.textContent = totalScore;
+      }
+      
+      const scoreCardEl = document.querySelector(".analysis-score-card .simple-score-display");
+      if (scoreCardEl) {
+        scoreCardEl.className = `simple-score-display ${totalScore >= 60 ? "pass" : "fail"}`;
+      }
+
       if (statusEl) {
         statusEl.textContent = "已儲存！";
         statusEl.style.color = "var(--success-color)";
@@ -1642,9 +1653,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 2000);
       }
 
-      if (showAlert) alert("評分已儲存！");
-      // Optional: Refresh the attempt list in the background
-      loadExamAttempts();
+      // Flag that a reload is needed when the modal closes
+      state.needsAttemptReload = true;
 
     } catch (error) {
       console.error("Error saving grade:", error);
@@ -1817,7 +1827,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <h3 class="section-title" style="margin: 0; border: none; font-size: 1.25rem;">作答紀錄詳情</h3>
                 <button id="print-attempt-btn" class="btn btn-secondary">
                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-                   列印此報告
+                   列印/匯出報告
                 </button>
             </div>
             <div id="printable-attempt-report">
@@ -1855,10 +1865,10 @@ document.addEventListener("DOMContentLoaded", () => {
                             ${userAnswer || "未作答"}
                         </div>
                         <div class="grading-section">
-                            <label for="grade-${q.id}">評分 (0-100分)：</label>
-                            <input type="number" id="grade-${q.id}" min="0" max="100" value="${q.grade || ''}" class="grade-input" data-question-id="${q.id}">
-                            <button class="btn btn-primary save-grade-btn" data-question-id="${q.id}">儲存評分</button>
-                            <span id="grade-status-${q.id}" style="margin-left: 0.5rem; font-size: 0.85rem; color: var(--success-color); display: none;">已儲存</span>
+                            <label for="grade-${index}">評分 (0-100分)：</label>
+                            <input type="number" id="grade-${index}" min="0" max="100" value="${q.grade !== null && q.grade !== undefined ? q.grade : ''}" class="grade-input" data-question-index="${index}">
+                            <button class="btn btn-primary save-grade-btn" data-question-index="${index}">儲存評分</button>
+                            <span id="grade-status-${index}" style="margin-left: 0.5rem; font-size: 0.85rem; color: var(--success-color); display: none;">已儲存</span>
                         </div>
                     </div>
                     ${
@@ -1924,16 +1934,17 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function handlePrintQuestions() {
-    const { filteredQuestions, filters } = state;
-    if (filteredQuestions.length === 0) {
-      alert("沒有可列印的題目。");
+    const { filteredQuestions, initialQuestionLoad } = state;
+    if (initialQuestionLoad || filteredQuestions.length === 0) {
+      alert("請先從上方選單選擇測驗類型或輸入搜尋關鍵字，以載入可列印的考題。");
       return;
     }
 
     const btn = document.getElementById("print-questions-btn");
-    const originalBtnHTML = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<div class="loading"></div> 準備列印...';
+    const originalBtnHTML = btn ? btn.innerHTML : "";
+    if (btn) { btn.disabled = true; btn.innerHTML = '<div class="loading"></div> 準備列印...'; }
+
+    try {
 
     let printContainer = document.getElementById("print-only-container");
     if (!printContainer) {
@@ -1943,6 +1954,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     let title = "考題列表";
+    const { filters } = state;
     if (filters.area) {
       title = [filters.area, filters.subject, filters.year, filters.examType]
         .filter(Boolean)
@@ -1952,12 +1964,15 @@ document.addEventListener("DOMContentLoaded", () => {
     let contentHtml = `<div style="padding: 20px; margin: 0;"><h1 style="font-size: 20px; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 16px;">${title}</h1>`;
 
     filteredQuestions.forEach((q, index) => {
+      const isHandwritten = !q.options || q.options.length === 0;
       contentHtml += `
-                <div class="print-question-item" style="margin-bottom: 16px;">
+                <div class="print-question-item" style="margin-bottom: 16px; page-break-inside: avoid;">
                     <p style="font-size: 14px; font-weight: 600; margin-bottom: 8px; line-height: 1.5;">${index + 1}. ${q.content}</p>
-                    <ol style="list-style-type: upper-alpha; padding-left: 20px; margin: 0; font-size: 13px;">
+                    ${isHandwritten
+                      ? `<p style="font-size: 13px; color: #6B7280; padding-left: 8px; font-style: italic;">（手寫題目）</p>`
+                      : `<ol style="list-style-type: upper-alpha; padding-left: 20px; margin: 0; font-size: 13px;">
                         ${q.options.map((opt, i) => `<li style="margin-bottom: 4px; line-height: 1.5; ${q.answer === i ? "font-weight: bold; color: #10B981;" : ""}">${opt}</li>`).join("")}
-                    </ol>
+                    </ol>`}
                     ${q.explanation ? `<div style="font-size: 13px; margin-top: 8px; padding: 8px; background-color: #f3f4f6; border-radius: 4px; border: 1px solid #e5e7eb; line-height: 1.6;"><strong>詳解：</strong> ${q.explanation.replace(/\n/g, "<br>")}</div>` : ""}
                 </div>
             `;
@@ -1967,9 +1982,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     setTimeout(() => {
       window.print();
-      btn.disabled = false;
-      btn.innerHTML = originalBtnHTML;
+      if (btn) { btn.disabled = false; btn.innerHTML = originalBtnHTML; }
     }, 100);
+
+    } catch (err) {
+      console.error("Print preparation failed:", err);
+      alert("準備列印時發生錯誤：" + err.message);
+      if (btn) { btn.disabled = false; btn.innerHTML = originalBtnHTML; }
+    }
   }
 
   function handlePrintAttempt(attempt) {
